@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CDINVERSIONES - Plataforma de Inversión</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // Configuración de Firebase con tus claves
+        const firebaseConfig = {
+          apiKey: "AIzaSyAZdeugWNF6Ncb2nLZ04bEma529e0napZg",
+          authDomain: "cdinversiones-7b8ec.firebaseapp.com",
+          projectId: "cdinversiones-7b8ec",
+          storageBucket: "cdinversiones-7b8ec.firebasestorage.app",
+          messagingSenderId: "50098942707",
+          appId: "1:50098942707:web:e3e0ccccaa2aa476b43d86"
+        };
+
+        // Inicializar Firebase
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.firestore();
+
+        const ADMIN_EMAIL = "cdinversiones2026@gmail.com";
+        const ADMIN_PASS = "somos.9";
+        const MP_LINK = "https://link.mercadopago.com.ar/mis4princesas2027";
+
+        // Productos de inversión
+        const PRODUCTS = [
+            { id: 1, name: "VIP 1 - Entrada", price: 1000, dailyYield: 120, durationDays: 30, levelRequired: 0 },
+            { id: 2, name: "VIP 2 - Crecimiento", price: 3000, dailyYield: 380, durationDays: 30, levelRequired: 1 },
+            { id: 3, name: "VIP 3 - Pro", price: 7000, dailyYield: 950, durationDays: 30, levelRequired: 2 },
+            { id: 4, name: "VIP 4 - Avanzado", price: 15000, dailyYield: 2100, durationDays: 30, levelRequired: 3 },
+            { id: 5, name: "VIP 5 - Elite", price: 30000, dailyYield: 4500, durationDays: 30, levelRequired: 4 },
+            { id: 6, name: "VIP 6 - Inversor Top", price: 60000, dailyYield: 9600, durationDays: 30, levelRequired: 5 },
+            { id: 7, name: "VIP 7 - Socio Master", price: 120000, dailyYield: 20000, durationDays: 30, levelRequired: 6 }
+        ];
+
+        function App() {
+            const [user, setUser] = React.useState(null);
+            const [usersList, setUsersList] = React.useState([]);
+            const [recharges, setRecharges] = React.useState([]);
+            const [view, setView] = React.useState('home'); // home, products, recharges, withdraw, refer, admin, login
+            const [email, setEmail] = React.useState('');
+            const [password, setPassword] = React.useState('');
+            const [isRegister, setIsRegister] = React.useState(false);
+            const [rechargeAmount, setRechargeAmount] = React.useState('');
+            const [proofUrl, setProofUrl] = React.useState('');
+            const [withdrawAmount, setWithdrawAmount] = React.useState('');
+            const [withdrawAlias, setWithdrawAlias] = React.useState('');
+
+            // Escuchar usuarios y solicitudes desde Firebase
+            React.useEffect(() => {
+                const unsubscribeUsers = db.collection('users').onSnapshot(snapshot => {
+                    const usersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    setUsersList(usersData);
+                    if (user) {
+                        const currentUserData = usersData.find(u => u.email === user.email);
+                        if (currentUserData) setUser(currentUserData);
+                    }
+                });
+
+                const unsubscribeRecharges = db.collection('recharges').onSnapshot(snapshot => {
+                    const rechargesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    setRecharges(rechargesData);
+                });
+
+                return () => {
+                    unsubscribeUsers();
+                    unsubscribeRecharges();
+                };
+            }, [user?.email]);
+
+            React.useEffect(() => {
+                if (window.lucide) window.lucide.createIcons();
+            });
+
+            // Autenticación / Registro
+            const handleAuth = async (e) => {
+                e.preventDefault();
+                if (!email || !password) return alert('Completa todos los campos');
+
+                if (email === ADMIN_EMAIL && password === ADMIN_PASS) {
+                    const adminData = { email: ADMIN_EMAIL, balance: 0, refBalance: 0, isAdmin: true };
+                    setUser(adminData);
+                    setView('admin');
+                    return;
+                }
+
+                const userRef = db.collection('users').doc(email.toLowerCase());
+                const doc = await userRef.get();
+
+                if (isRegister) {
+                    if (doc.exists) return alert('El usuario ya existe');
+                    const newUser = {
+                        email: email.toLowerCase(),
+                        password,
+                        balance: 0,
+                        refBalance: 0,
+                        checkInDone: false,
+                        lastCheckIn: null,
+                        purchasedProducts: [],
+                        level: 1
+                    };
+                    await userRef.set(newUser);
+                    setUser(newUser);
+                    setView('home');
+                } else {
+                    if (!doc.exists || doc.data().password !== password) {
+                        return alert('Credenciales incorrectas');
+                    }
+                    setUser(doc.data());
+                    setView('home');
+                }
+            };
+
+            // Check-in diario de $100
+            const handleCheckIn = async () => {
+                if (!user) return;
+                const today = new Date().toDateString();
+                if (user.lastCheckIn === today) {
+                    return alert('Ya realizaste tu check-in de hoy');
+                }
+                const newBalance = (user.balance || 0) + 100;
+                await db.collection('users').doc(user.email).update({
+                    balance: newBalance,
+                    lastCheckIn: today,
+                    checkInDone: true
+                });
+                alert('¡Check-in exitoso! Recibiste $100 ARS');
+            };
+
+            // Enviar solicitud de recarga
+            const handleRechargeSubmit = async (e) => {
+                e.preventDefault();
+                if (!rechargeAmount || parseFloat(rechargeAmount) <= 0) return alert('Ingresa un monto válido');
+                await db.collection('recharges').add({
+                    userEmail: user.email,
+                    amount: parseFloat(rechargeAmount),
+                    proofUrl: proofUrl || 'Sin comprobante',
+                    status: 'PENDING',
+                    date: new Date().toLocaleString()
+                });
+                alert('Solicitud enviada a revisión por el administrador');
+                setRechargeAmount('');
+                setProofUrl('');
+            };
+
+            // Comprar Producto
+            const handleBuyProduct = async (product) => {
+                if (!user) return;
+                if ((user.balance || 0) < product.price) {
+                    return alert('Saldo insuficiente. Realiza una recarga.');
+                }
+                const newBalance = user.balance - product.price;
+                const purchasedProducts = user.purchasedProducts || [];
+                purchasedProducts.push({
+                    ...product,
+                    purchaseDate: new Date().toISOString()
+                });
+
+                await db.collection('users').doc(user.email).update({
+                    balance: newBalance,
+                    purchasedProducts
+                });
+                alert(`¡Compraste exitosamente el ${product.name}!`);
+            };
+
+            // Admin: Modificar saldo
+            const handleUpdateBalance = async (targetEmail, currentBalance, amountToAdd) => {
+                const newBalance = Math.max(0, currentBalance + amountToAdd);
+                await db.collection('users').doc(targetEmail).update({ balance: newBalance });
+            };
+
+            // Admin: Aprobar Recarga
+            const handleApproveRecharge = async (recharge) => {
+                const userRef = db.collection('users').doc(recharge.userEmail);
+                const doc = await userRef.get();
+                if (doc.exists) {
+                    const currentBalance = doc.data().balance || 0;
+                    await userRef.update({ balance: currentBalance + recharge.amount });
+                    await db.collection('recharges').doc(recharge.id).update({ status: 'APPROVED' });
+                    alert('Recarga aprobada y saldo acreditado');
+                }
+            };
+
+            // Login Screen
+            if (!user) {
+                return (
+                    <div class="flex items-center justify-center min-h-screen p-4 bg-slate-900">
+                        <div class="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-md border border-slate-700">
+                            <div class="text-center mb-8">
+                                <h1 class="text-3xl font-extrabold text-amber-500 mb-2">CDINVERSIONES</h1>
+                                <p class="text-slate-400 text-sm">Plataforma Oficial de Inversión</p>
+                            </div>
+                            <form onSubmit={handleAuth} class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-300 mb-1">Correo Electrónico</label>
+                                    <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
+                                        class="w-full bg-slate-700 text-white p-3 rounded-lg border border-slate-600 focus:outline-none focus:border-amber-500" placeholder="correo@ejemplo.com" />
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-300 mb-1">Contraseña</label>
+                                    <input type="password" required value={password} onChange={e => setPassword(e.target.value)}
+                                        class="w-full bg-slate-700 text-white p-3 rounded-lg border border-slate-600 focus:outline-none focus:border-amber-500" placeholder="••••••••" />
+                                </div>
+                                <button type="submit" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold p-3 rounded-lg transition-all">
+                                    {isRegister ? 'Crear Cuenta' : 'Iniciar Sesión'}
+                                </button>
+                            </form>
+                            <div class="mt-6 text-center">
+                                <button onClick={() => setIsRegister(!isRegister)} class="text-amber-400 hover:underline text-sm">
+                                    {isRegister ? '¿Ya tienes cuenta? Inicia Sesión' : '¿No tienes cuenta? Regístrate aquí'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div class="pb-20 max-w-md mx-auto min-h-screen bg-slate-900 border-x border-slate-800">
+                    <!-- Top Bar -->
+                    <div class="bg-slate-800 p-4 border-b border-slate-700 flex justify-between items-center sticky top-0 z-50">
+                        <div>
+                            <h2 class="text-lg font-bold text-amber-500">CDINVERSIONES</h2>
+                            <p class="text-xs text-slate-400">{user.email}</p>
+                        </div>
+                        <button onClick={() => setUser(null)} class="text-slate-400 hover:text-red-400">
+                            <i data-lucide="log-out" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+
+                    <!-- Main Content -->
+                    <div class="p-4 space-y-6">
+                        <!-- Saldo Card -->
+                        <div class="bg-gradient-to-br from-amber-500 to-amber-700 rounded-2xl p-5 text-slate-950 shadow-lg">
+                            <p class="text-xs font-semibold uppercase tracking-wider opacity-80">Saldo Disponible</p>
+                            <h1 class="text-3xl font-black my-1">${(user.balance || 0).toLocaleString()} ARS</h1>
+                            <div class="flex justify-between items-center mt-4 pt-3 border-t border-amber-600/40 text-xs">
+                                <span>Saldo Referidos: ${(user.refBalance || 0).toLocaleString()} ARS</span>
+                                <span class="bg-slate-950/20 px-2 py-1 rounded-full font-bold">Nivel VIP {user.level || 1}</span>
+                            </div>
+                        </div>
+
+                        {/* Vistas */}
+                        {view === 'home' && (
+                            <div class="space-y-4">
+                                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex justify-between items-center">
+                                    <div>
+                                        <h3 class="font-bold text-amber-400">Check-in Diario</h3>
+                                        <p class="text-xs text-slate-400">Gana $100 ARS cada 24 horas</p>
+                                    </div>
+                                    <button onClick={handleCheckIn} class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-4 py-2 rounded-lg text-sm">
+                                        Reclamar $100
+                                    </button>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-3">
+                                    <button onClick={() => setView('recharges')} class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-col items-center gap-2 hover:border-amber-500">
+                                        <i data-lucide="arrow-down-left" class="text-amber-500"></i>
+                                        <span class="text-sm font-semibold">Cargar Saldo</span>
+                                    </button>
+                                    <button onClick={() => setView('withdraw')} class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-col items-center gap-2 hover:border-amber-500">
+                                        <i data-lucide="arrow-up-right" class="text-amber-500"></i>
+                                        <span class="text-sm font-semibold">Retirar</span>
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {view === 'products' && (
+                            <div class="space-y-4">
+                                <h3 class="text-lg font-bold text-amber-400">Planes de Inversión</h3>
+                                {PRODUCTS.map(p => (
+                                    <div key={p.id} class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex justify-between items-center">
+                                        <div>
+                                            <h4 class="font-bold text-white">{p.name}</h4>
+                                            <p class="text-xs text-slate-400">Precio: ${p.price.toLocaleString()} ARS</p>
+                                            <p class="text-xs text-emerald-400">Ganancia Diaria: ${p.dailyYield.toLocaleString()} ARS</p>
+                                        </div>
+                                        <button onClick={() => handleBuyProduct(p)} class="bg-amber-500 text-slate-950 font-bold px-4 py-2 rounded-lg text-sm">
+                                            Invertir
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {view === 'recharges' && (
+                            <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-4">
+                                <h3 class="text-lg font-bold text-amber-400">Recargar Saldo</h3>
+                                <p class="text-xs text-slate-300">1. Realiza la transferencia al siguiente link de Mercado Pago:</p>
+                                <a href={MP_LINK} target="_blank" class="block w-full text-center bg-blue-600 hover:bg-blue-700 text-white font-bold p-3 rounded-lg text-sm">
+                                    Pagar con Mercado Pago
+                                </a>
+                                <form onSubmit={handleRechargeSubmit} class="space-y-3 pt-3 border-t border-slate-700">
+                                    <p class="text-xs text-slate-300">2. Ingresa el monto enviado y la URL de la captura o comprobante:</p>
+                                    <input type="number" required placeholder="Monto cargado ($)" value={rechargeAmount} onChange={e => setRechargeAmount(e.target.value)}
+                                        class="w-full bg-slate-700 text-white p-3 rounded-lg text-sm border border-slate-600" />
+                                    <input type="text" placeholder="Link de la captura de pantalla" value={proofUrl} onChange={e => setProofUrl(e.target.value)}
+                                        class="w-full bg-slate-700 text-white p-3 rounded-lg text-sm border border-slate-600" />
+                                    <button type="submit" class="w-full bg-amber-500 text-slate-950 font-bold p-3 rounded-lg text-sm">
+                                        Enviar Comprobante
+                                    </button>
+                                </form>
+                            </div>
+                        )}
+
+                        {view === 'admin' && user.email === ADMIN_EMAIL && (
+                            <div class="space-y-6">
+                                <h3 class="text-lg font-bold text-amber-400">PANEL ADMINISTRADOR</h3>
+
+                                <!-- Lista de Usuarios -->
+                                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                                    <h4 class="font-bold text-white mb-3">Usuarios Registrados ({usersList.length})</h4>
+                                    <div class="space-y-3 max-h-60 overflow-y-auto">
+                                        {usersList.map(u => (
+                                            <div key={u.id} class="bg-slate-700 p-3 rounded-lg flex justify-between items-center text-xs">
+                                                <div>
+                                                    <p class="font-bold text-white">{u.email}</p>
+                                                    <p class="text-amber-400">Saldo: ${u.balance || 0} ARS</p>
+                                                </div>
+                                                <div class="flex gap-1">
+                                                    <button onClick={() => handleUpdateBalance(u.email, u.balance || 0, 1000)} class="bg-emerald-600 text-white px-2 py-1 rounded font-bold">+1000</button>
+                                                    <butto
