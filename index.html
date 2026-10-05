@@ -3,13 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CDINVERSIONES - Plataforma de Inversión</title>
+    <title>CDINVERSIONES - Panel Oficial</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <style>
+        .glow-cyan { text-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
+        .border-glow { box-shadow: 0 0 15px rgba(56, 189, 248, 0.15); }
+    </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
-    <div id="app" class="max-w-md mx-auto min-h-screen flex flex-col justify-between relative bg-slate-900 border-x border-slate-800"></div>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans">
+    <div id="app" class="max-w-md mx-auto min-h-screen flex flex-col justify-between relative bg-slate-950 border-x border-slate-800/60 pb-20"></div>
 
     <script>
         const firebaseConfig = {
@@ -30,14 +34,19 @@
         const ADMIN_PASS = "somos.9";
         const MP_LINK = "https://link.mercadopago.com.ar/mis4princesas2027";
 
+        // TABLA EXACTA DE PRODUCTOS Y LÍMITES DE COMPRA DE LA IMAGEN
         const PRODUCTS = [
-            { id: 1, name: "VIP 1 - Entrada", price: 1000, dailyYield: 120 },
-            { id: 2, name: "VIP 2 - Crecimiento", price: 3000, dailyYield: 380 },
-            { id: 3, name: "VIP 3 - Pro", price: 7000, dailyYield: 950 },
-            { id: 4, name: "VIP 4 - Avanzado", price: 15000, dailyYield: 2100 },
-            { id: 5, name: "VIP 5 - Elite", price: 30000, dailyYield: 4500 },
-            { id: 6, name: "VIP 6 - Inversor Top", price: 60000, dailyYield: 9600 },
-            { id: 7, name: "VIP 7 - Socio Master", price: 120000, dailyYield: 20000 }
+            { id: 1, name: "Plan Celular 5.000 ARS", days: 3, dailyYield: 2583, total: 7750, limit: 1 },
+            { id: 2, name: "Plan Celular 10.000 ARS", days: 6, dailyYield: 2583, total: 15500, limit: 1 },
+            { id: 3, name: "Plan Celular 16.000 ARS", days: 8, dailyYield: 3100, total: 24800, limit: 1 },
+            { id: 4, name: "Plan Celular 20.000 ARS", days: 11, dailyYield: 2818, total: 31000, limit: 1 },
+            { id: 5, name: "Plan Celular 28.000 ARS", days: 15, dailyYield: 2893, total: 43400, limit: 2 },
+            { id: 6, name: "Plan Celular 36.000 ARS", days: 18, dailyYield: 3100, total: 55800, limit: 2 },
+            { id: 7, name: "Plan Celular 45.000 ARS", days: 25, dailyYield: 2790, total: 69750, limit: 2 },
+            { id: 8, name: "Plan Celular 60.000 ARS", days: 30, dailyYield: 3100, total: 93000, limit: 2 },
+            { id: 9, name: "Plan Celular 75.000 ARS", days: 36, dailyYield: 3646, total: 131250, limit: 3 },
+            { id: 10, name: "Plan Celular 100.000 ARS", days: 48, dailyYield: 3646, total: 175000, limit: 3 },
+            { id: 11, name: "Plan Celular 150.000 ARS", days: 70, dailyYield: 3750, total: 262500, limit: 3 }
         ];
 
         let currentUser = null;
@@ -45,32 +54,37 @@
         let isRegisterMode = false;
         let usersList = [];
         let rechargesList = [];
+        let withdrawsList = [];
 
         function render() {
             const app = document.getElementById('app');
+            
+            // PANTALLA DE LOGIN / REGISTRO
             if (!currentUser) {
                 app.innerHTML = `
                     <div class="flex items-center justify-center min-h-screen p-4 w-full">
-                        <div class="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full border border-slate-700">
-                            <div class="text-center mb-8">
-                                <h1 class="text-3xl font-extrabold text-amber-500 mb-2">CDINVERSIONES</h1>
-                                <p class="text-slate-400 text-sm">Plataforma Oficial de Inversión</p>
+                        <div class="bg-slate-900/90 p-8 rounded-2xl border border-cyan-500/30 border-glow w-full">
+                            <div class="text-center mb-6">
+                                <h1 class="text-3xl font-black tracking-wider text-cyan-400 glow-cyan mb-1">CDINVERSIONES</h1>
+                                <p class="text-slate-400 text-xs">Inversión en Celulares • Máxima Rentabilidad</p>
                             </div>
+                            
                             <form id="authForm" class="space-y-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-slate-300 mb-1">Correo Electrónico</label>
-                                    <input type="email" id="emailInput" required class="w-full bg-slate-700 text-white p-3 rounded-lg border border-slate-600 focus:outline-none focus:border-amber-500" placeholder="correo@ejemplo.com">
+                                    <label class="block text-xs font-semibold text-slate-300 mb-1 uppercase">Correo Electrónico</label>
+                                    <input type="email" id="emailInput" required class="w-full bg-slate-950 text-white p-3 rounded-lg border border-slate-700 focus:outline-none focus:border-cyan-400 text-sm" placeholder="correo@ejemplo.com">
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-slate-300 mb-1">Contraseña</label>
-                                    <input type="password" id="passInput" required class="w-full bg-slate-700 text-white p-3 rounded-lg border border-slate-600 focus:outline-none focus:border-amber-500" placeholder="••••••••">
+                                    <label class="block text-xs font-semibold text-slate-300 mb-1 uppercase">Contraseña</label>
+                                    <input type="password" id="passInput" required class="w-full bg-slate-950 text-white p-3 rounded-lg border border-slate-700 focus:outline-none focus:border-cyan-400 text-sm" placeholder="••••••••">
                                 </div>
-                                <button type="submit" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold p-3 rounded-lg transition-all">
+                                <button type="submit" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black p-3 rounded-lg transition-all text-sm uppercase tracking-wider">
                                     ${isRegisterMode ? 'Crear Cuenta' : 'Iniciar Sesión'}
                                 </button>
                             </form>
+                            
                             <div class="mt-6 text-center">
-                                <button onclick="toggleAuthMode()" class="text-amber-400 hover:underline text-sm">
+                                <button onclick="toggleAuthMode()" class="text-cyan-400 hover:underline text-xs font-semibold">
                                     ${isRegisterMode ? '¿Ya tienes cuenta? Inicia Sesión' : '¿No tienes cuenta? Regístrate aquí'}
                                 </button>
                             </div>
@@ -82,63 +96,109 @@
                 return;
             }
 
+            // CONTENIDO SEGÚN LA PESTAÑA
             let mainContent = '';
 
             if (currentView === 'home') {
                 mainContent = `
-                    <div class="space-y-4">
-                        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex justify-between items-center">
-                            <div>
-                                <h3 class="font-bold text-amber-400">Check-in Diario</h3>
-                                <p class="text-xs text-slate-400">Gana $100 ARS cada 24 horas</p>
-                            </div>
-                            <button onclick="handleCheckIn()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-4 py-2 rounded-lg text-sm">
-                                Reclamar $100
-                            </button>
-                        </div>
-                        <div class="grid grid-cols-2 gap-3">
-                            <button onclick="setView('recharges')" class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-col items-center gap-2 hover:border-amber-500">
-                                <span class="text-amber-500 text-xl">⬇</span>
-                                <span class="text-sm font-semibold">Cargar Saldo</span>
-                            </button>
-                            <button onclick="setView('products')" class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-col items-center gap-2 hover:border-amber-500">
-                                <span class="text-amber-500 text-xl">📈</span>
-                                <span class="text-sm font-semibold">Invertir</span>
-                            </button>
-                        </div>
-                    </div>
-                `;
-            } else if (currentView === 'products') {
-                mainContent = `
-                    <div class="space-y-4">
-                        <h3 class="text-lg font-bold text-amber-400">Planes de Inversión</h3>
-                        ${PRODUCTS.map(p => `
-                            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex justify-between items-center">
-                                <div>
-                                    <h4 class="font-bold text-white">${p.name}</h4>
-                                    <p class="text-xs text-slate-400">Precio: $${p.price.toLocaleString()} ARS</p>                                     <p class="text-xs text-emerald-400">Ganancia Diaria: $${p.dailyYield.toLocaleString()} ARS</p>
+                    <div class="space-y-5">
+                        <!-- BANNER MOTIVACIONAL Y BANNER DE INVERSIÓN -->
+                        <div class="relative overflow-hidden rounded-xl border border-cyan-500/30 bg-gradient-to-br from-slate-900 to-blue-950 p-4 border-glow">
+                            <div class="flex items-center gap-4">
+                                <div class="w-20 h-20 rounded-lg overflow-hidden border border-cyan-400/40 flex-shrink-0 bg-black">
+                                    <img src="https://raw.githubusercontent.com/cdinversiones2026-tech/CDINVERSIONES/main/6546.jpg" onerror="this.src='https://placehold.co/100x100/0f172a/38bdf8?text=CDINVERSION'" alt="CDINVERSION" class="w-full h-full object-cover">
                                 </div>
-                                <button onclick="buyProduct(${p.price})" class="bg-amber-500 text-slate-950 font-bold px-4 py-2 rounded-lg text-sm">
-                                    Invertir
-                                </button>
+                                <div>
+                                    <span class="text-[10px] bg-cyan-500/20 text-cyan-300 font-bold px-2 py-0.5 rounded border border-cyan-500/30">CRECIMIENTO +120%</span>
+                                    <h4 class="font-bold text-white text-sm mt-1">Cell Phone Investment</h4>
+                                    <p class="text-[11px] text-slate-300 mt-1 italic">"Construye tu futuro hoy con rendimientos diarios automatizados."</p>
+                                </div>
                             </div>
-                        `).join('')}
+                        </div>
+
+                        <!-- BOTONES CARGAR Y RETIRAR -->
+                        <div class="grid grid-cols-2 gap-3">
+                            <button onclick="setView('recharges')" class="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 p-3.5 rounded-xl border border-emerald-400/30 flex items-center justify-center gap-2 shadow-lg">
+                                <span class="text-xl">⬇️</span>
+                                <span class="text-sm font-black tracking-wide text-white uppercase">CARGAR</span>
+                            </button>
+                            <button onclick="setView('withdraws')" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 p-3.5 rounded-xl border border-cyan-400/30 flex items-center justify-center gap-2 shadow-lg">
+                                <span class="text-xl">⬆️</span>
+                                <span class="text-sm font-black tracking-wide text-white uppercase">RETIRAR</span>
+                            </button>
+                        </div>
+
+                        <!-- CHECK-IN DIARIO -->
+                        <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 flex justify-between items-center">
+                            <div>
+                                <h3 class="font-bold text-cyan-400 text-sm">Check-in Diario</h3>
+                                <p class="text-[11px] text-slate-400">Reclama $100 ARS cada 24hs</p>
+                            </div>
+                            <button onclick="handleCheckIn()" class="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs">
+                                Reclamar
+                            </button>
+                        </div>
+
+                        <!-- LISTA DE PRODUCTOS Y LÍMITES -->
+                        <div>
+                            <div class="flex justify-between items-center mb-3">
+                                <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-400">Planes Disponibles</h3>
+                                <span class="text-[10px] text-slate-400">Precios expresados en ARS</span>
+                            </div>
+
+                            <div class="space-y-3">
+                                ${PRODUCTS.map(p => {
+                                    const purchases = (currentUser.purchases && currentUser.purchases[p.id]) || 0;
+                                    const limitReached = purchases >= p.limit;
+                                    return `
+                                        <div class="bg-slate-900/90 p-4 rounded-xl border ${limitReached ? 'border-slate-800 opacity-60' : 'border-slate-800 hover:border-cyan-500/50'} transition-all">
+                                            <div class="flex justify-between items-start mb-2">
+                                                <div>
+                                                    <h4 class="font-bold text-white text-sm">${p.name}</h4>
+                                                    <p class="text-[11px] text-cyan-300 font-semibold">Plazo: ${p.days} días • Día: $${p.dailyYield.toLocaleString()} ARS</p>
+                                                </div>
+                                                <span class="text-[10px] bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded font-bold">
+                                                    Límite: ${purchases}/${p.limit}                                                 </span>                                             </div>                                             <div class="flex justify-between items-center pt-2 border-t border-slate-800/80">                                                 <div>                                                     <p class="text-[10px] text-slate-400 uppercase">Total Retorno</p>                                                     <p class="text-xs font-black text-emerald-400">$${p.total.toLocaleString()} ARS</p>
+                                                </div>
+                                                <button onclick="buyProduct(${p.id},${p.dailyYield * p.days})" ${limitReached ? 'disabled' : ''} class="${limitReached ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-black'} px-4 py-2 rounded-lg text-xs uppercase tracking-wide">
+                                                    ${limitReached ? 'Agotado' : 'Adquirir'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
                     </div>
                 `;
             } else if (currentView === 'recharges') {
                 mainContent = `
-                    <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-4">
-                        <h3 class="text-lg font-bold text-amber-400">Recargar Saldo</h3>
-                        <p class="text-xs text-slate-300">1. Realiza la transferencia al siguiente link de Mercado Pago:</p>
-                        <a href="${MP_LINK}" target="_blank" class="block w-full text-center bg-blue-600 hover:bg-blue-700 text-white font-bold p-3 rounded-lg text-sm">
+                    <div class="bg-slate-900/90 p-5 rounded-xl border border-cyan-500/30 border-glow space-y-4">
+                        <h3 class="text-sm font-bold text-cyan-400 uppercase tracking-wider">CARGAR SALDO</h3>
+                        <p class="text-xs text-slate-300">1. Realiza la transferencia al siguiente enlace de Mercado Pago:</p>
+                        <a href="${MP_LINK}" target="_blank" class="block w-full text-center bg-blue-600 hover:bg-blue-500 text-white font-bold p-3 rounded-lg text-xs uppercase tracking-wider">
                             Pagar con Mercado Pago
                         </a>
-                        <form id="rechargeForm" class="space-y-3 pt-3 border-t border-slate-700">
-                            <p class="text-xs text-slate-300">2. Ingresa el monto enviado y la URL del comprobante:</p>
-                            <input type="number" id="rechargeAmount" required placeholder="Monto cargado ($)" class="w-full bg-slate-700 text-white p-3 rounded-lg text-sm border border-slate-600">
-                            <input type="text" id="proofUrl" placeholder="Link o nota del comprobante" class="w-full bg-slate-700 text-white p-3 rounded-lg text-sm border border-slate-600">
-                            <button type="submit" class="w-full bg-amber-500 text-slate-950 font-bold p-3 rounded-lg text-sm">
-                                Enviar Comprobante
+                        <form id="rechargeForm" class="space-y-3 pt-3 border-t border-slate-800">
+                            <p class="text-xs text-slate-300">2. Ingresa el monto cargado y el comprobante:</p>
+                            <input type="number" id="rechargeAmount" required placeholder="Monto ($ ARS)" class="w-full bg-slate-950 text-white p-3 rounded-lg text-xs border border-slate-700">
+                            <input type="text" id="proofUrl" placeholder="Link / Detalle del comprobante" class="w-full bg-slate-950 text-white p-3 rounded-lg text-xs border border-slate-700">
+                            <button type="submit" class="w-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black p-3 rounded-lg text-xs uppercase tracking-wider">
+                                Confirmar Carga
+                            </button>
+                        </form>
+                    </div>
+                `;
+            } else if (currentView === 'withdraws') {
+                mainContent = `
+                    <div class="bg-slate-900/90 p-5 rounded-xl border border-cyan-500/30 border-glow space-y-4">
+                        <h3 class="text-sm font-bold text-cyan-400 uppercase tracking-wider">RETIRAR SALDO</h3>
+                        <form id="withdrawForm" class="space-y-3">
+                            <p class="text-xs text-slate-300">Ingresa tu CBU/CVU de Mercado Pago o Banco y el monto a retirar:</p>
+                            <input type="number" id="withdrawAmount" required placeholder="Monto a retirar ($ ARS)" class="w-full bg-slate-950 text-white p-3 rounded-lg text-xs border border-slate-700">
+                            <input type="text" id="cbuInput" required placeholder="CBU / CVU o Alias de destino" class="w-full bg-slate-950 text-white p-3 rounded-lg text-xs border border-slate-700">
+                            <button type="submit" class="w-full bg-gradient-to-r from-cyan-500 to-blue-500 text-slate-950 font-black p-3 rounded-lg text-xs uppercase tracking-wider">
+                                Solicitar Retiro
                             </button>
                         </form>
                     </div>
@@ -146,61 +206,85 @@
             } else if (currentView === 'admin' && currentUser.email === ADMIN_EMAIL) {
                 mainContent = `
                     <div class="space-y-6">
-                        <h3 class="text-lg font-bold text-amber-400">PANEL ADMINISTRADOR</h3>
-                        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
-                            <h4 class="font-bold text-white mb-3">Usuarios Registrados (${usersList.length})</h4>
-                            <div class="space-y-3 max-h-60 overflow-y-auto">
+                        <h3 class="text-sm font-bold text-cyan-400 uppercase tracking-wider">PANEL ADMINISTRADOR</h3>
+                        
+                        <!-- USUARIOS -->
+                        <div class="bg-slate-900/90 p-4 rounded-xl border border-slate-800">
+                            <h4 class="font-bold text-white text-xs mb-3 uppercase">Usuarios Registrados (${usersList.length})</h4>
+                            <div class="space-y-2 max-h-56 overflow-y-auto">
                                 ${usersList.map(u => `
-                                    <div class="bg-slate-700 p-3 rounded-lg flex justify-between items-center text-xs">
-                                        <div>
-                                            <p class="font-bold text-white">${u.email}</p>                                             <p class="text-amber-400">Saldo: $${u.balance || 0} ARS</p>
+                                    <div class="bg-slate-950 p-2.5 rounded border border-slate-800 flex justify-between items-center text-xs">
+                                        <div class="truncate mr-2">
+                                            <p class="font-bold text-white truncate">${u.email}</p>                                             <p class="text-cyan-400 text-[11px]">$${(u.balance || 0).toLocaleString()} ARS</p>
                                         </div>
-                                        <div class="flex gap-1">
-                                            <button onclick="updateUserBalance('${u.email}',${(u.balance || 0) + 1000})" class="bg-emerald-600 text-white px-2 py-1 rounded font-bold">+1000</button>
-                                            <button onclick="updateUserBalance('${u.email}',${Math.max(0, (u.balance || 0) - 1000)})" class="bg-red-600 text-white px-2 py-1 rounded font-bold">-1000</button>
+                                        <div class="flex gap-1 flex-shrink-0">
+                                            <button onclick="updateUserBalance('${u.email}',${(u.balance || 0) + 1000})" class="bg-emerald-600 text-white px-2 py-1 rounded font-bold text-[10px]">+1000</button>
+                                            <button onclick="updateUserBalance('${u.email}',${Math.max(0, (u.balance || 0) - 1000)})" class="bg-red-600 text-white px-2 py-1 rounded font-bold text-[10px]">-1000</button>
                                         </div>
                                     </div>
                                 `).join('')}
                             </div>
                         </div>
-                        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
-                            <h4 class="font-bold text-white mb-3">Recargas Pendientes</h4>
-                            <div class="space-y-3">
+
+                        <!-- RECARGAS PENDIENTES -->
+                        <div class="bg-slate-900/90 p-4 rounded-xl border border-slate-800">
+                            <h4 class="font-bold text-white text-xs mb-3 uppercase">Solicitudes de Carga</h4>
+                            <div class="space-y-2">
                                 ${rechargesList.filter(r => r.status === 'PENDING').map(r => `
-                                    <div class="bg-slate-700 p-3 rounded-lg space-y-2 text-xs">
-                                        <p><strong class="text-white">Usuario:</strong> ${r.userEmail}</p>                                         <p><strong class="text-amber-400">Monto:</strong> $${r.amount} ARS</p>
-                                        <p class="truncate"><strong class="text-slate-300">Comprobante:</strong> ${r.proofUrl}</p>
-                                        <button onclick="approveRecharge('${r.id}', '${r.userEmail}',${r.amount})" class="w-full bg-emerald-500 text-slate-950 font-bold p-2 rounded">
-                                            Aprobar Recarga
+                                    <div class="bg-slate-950 p-3 rounded border border-slate-800 text-xs space-y-1">
+                                        <p><strong class="text-white">Usuario:</strong> ${r.userEmail}</p>                                         <p><strong class="text-cyan-400">Monto:</strong> $${r.amount} ARS</p>
+                                        <p class="truncate"><strong class="text-slate-400">Comprobante:</strong> ${r.proofUrl}</p>
+                                        <button onclick="approveRecharge('${r.id}', '${r.userEmail}',${r.amount})" class="w-full bg-emerald-500 text-slate-950 font-bold p-1.5 rounded text-[11px] mt-1">
+                                            Aprobar Carga
                                         </button>
                                     </div>
                                 `).join('')}
-                                ${rechargesList.filter(r => r.status === 'PENDING').length === 0 ? '<p class="text-xs text-slate-400">No hay recargas pendientes.</p>' : ''}
+                                ${rechargesList.filter(r => r.status === 'PENDING').length === 0 ? '<p class="text-xs text-slate-500">Sin cargas pendientes.</p>' : ''}
+                            </div>
+                        </div>
+
+                        <!-- RETIROS PENDIENTES -->
+                        <div class="bg-slate-900/90 p-4 rounded-xl border border-slate-800">
+                            <h4 class="font-bold text-white text-xs mb-3 uppercase">Solicitudes de Retiro</h4>
+                            <div class="space-y-2">
+                                ${withdrawsList.filter(w => w.status === 'PENDING').map(w => `
+                                    <div class="bg-slate-950 p-3 rounded border border-slate-800 text-xs space-y-1">
+                                        <p><strong class="text-white">Usuario:</strong> ${w.userEmail}</p>                                         <p><strong class="text-cyan-400">Monto:</strong> $${w.amount} ARS</p>
+                                        <p><strong class="text-slate-400">CBU/Alias:</strong> ${w.cbu}</p>
+                                        <button onclick="approveWithdraw('${w.id}')" class="w-full bg-blue-500 text-slate-950 font-bold p-1.5 rounded text-[11px] mt-1">
+                                            Marcar Completado
+                                        </button>
+                                    </div>
+                                `).join('')}
+                                ${withdrawsList.filter(w => w.status === 'PENDING').length === 0 ? '<p class="text-xs text-slate-500">Sin retiros pendientes.</p>' : ''}
                             </div>
                         </div>
                     </div>
                 `;
             }
 
+            // ENCABEZADO "PANEL" Y TARJETA PRINCIPAL
             app.innerHTML = `
                 <div>
-                    <div class="bg-slate-800 p-4 border-b border-slate-700 flex justify-between items-center sticky top-0 z-50">
+                    <!-- BARRA SUPERIOR -->
+                    <div class="bg-slate-900/90 backdrop-blur p-4 border-b border-slate-800 flex justify-between items-center sticky top-0 z-50">
                         <div>
-                            <h2 class="text-lg font-bold text-amber-500">CDINVERSIONES</h2>
-                            <p class="text-xs text-slate-400">${currentUser.email}</p>
+                            <h2 class="text-xl font-black text-cyan-400 tracking-wider glow-cyan">PANEL</h2>
+                            <p class="text-[10px] text-slate-400 truncate max-w-[180px]">${currentUser.email}</p>
                         </div>
-                        <button onclick="logout()" class="text-slate-400 hover:text-red-400 text-sm font-bold">
+                        <button onclick="logout()" class="text-slate-400 hover:text-red-400 text-xs font-bold uppercase">
                             Salir
                         </button>
                     </div>
 
-                    <div class="p-4 space-y-6">
-                        <div class="bg-gradient-to-br from-amber-500 to-amber-700 rounded-2xl p-5 text-slate-950 shadow-lg">
-                            <p class="text-xs font-semibold uppercase tracking-wider opacity-80">Saldo Disponible</p>
-                            <h1 class="text-3xl font-black my-1">$${(currentUser.balance || 0).toLocaleString()} ARS</h1>
-                            <div class="flex justify-between items-center mt-4 pt-3 border-t border-amber-600/40 text-xs">
-                                <span>Saldo Referidos: $${(currentUser.refBalance || 0).toLocaleString()} ARS</span>
-                                <span class="bg-slate-950/20 px-2 py-1 rounded-full font-bold">Nivel VIP ${currentUser.level || 1}</span>
+                    <div class="p-4 space-y-5">
+                        <!-- TARJETA SALDO DE ESTILO AZUL/CIAN METÁLICO -->
+                        <div class="bg-gradient-to-r from-blue-900 via-cyan-900 to-slate-900 rounded-2xl p-5 border border-cyan-500/40 border-glow shadow-xl text-white">
+                            <p class="text-[10px] font-bold uppercase tracking-wider text-cyan-300">SALDO DISPONIBLE</p>
+                            <h1 class="text-3xl font-black my-1 text-white">$${(currentUser.balance || 0).toLocaleString()} ARS</h1>
+                            <div class="flex justify-between items-center mt-3 pt-3 border-t border-cyan-500/20 text-[11px]">
+                                <span class="text-slate-300">Saldo Referidos: $${(currentUser.refBalance || 0).toLocaleString()} ARS</span>
+                                <span class="bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-full font-bold">Nivel VIP ${currentUser.level || 1}</span>
                             </div>
                         </div>
 
@@ -208,23 +292,24 @@
                     </div>
                 </div>
 
-                <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-slate-800 border-t border-slate-700 flex justify-around py-3 text-slate-400 z-50">
-                    <button onclick="setView('home')" class="flex flex-col items-center ${currentView === 'home' ? 'text-amber-500 font-bold' : ''}">
-                        <span>🏠</span>
-                        <span class="text-[10px]">Inicio</span>
+                <!-- BARRA INFERIOR DE NAVEGACIÓN -->
+                <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-slate-900/95 border-t border-slate-800 flex justify-around py-3 text-slate-400 z-50">
+                    <button onclick="setView('home')" class="flex flex-col items-center ${currentView === 'home' ? 'text-cyan-400 font-bold' : ''}">
+                        <span class="text-lg">📱</span>
+                        <span class="text-[10px] uppercase">Panel</span>
                     </button>
-                    <button onclick="setView('products')" class="flex flex-col items-center ${currentView === 'products' ? 'text-amber-500 font-bold' : ''}">
-                        <span>📈</span>
-                        <span class="text-[10px]">Planes</span>
+                    <button onclick="setView('recharges')" class="flex flex-col items-center ${currentView === 'recharges' ? 'text-cyan-400 font-bold' : ''}">
+                        <span class="text-lg">💳</span>
+                        <span class="text-[10px] uppercase">Cargar</span>
                     </button>
-                    <button onclick="setView('recharges')" class="flex flex-col items-center ${currentView === 'recharges' ? 'text-amber-500 font-bold' : ''}">
-                        <span>💳</span>
-                        <span class="text-[10px]">Cargar</span>
+                    <button onclick="setView('withdraws')" class="flex flex-col items-center ${currentView === 'withdraws' ? 'text-cyan-400 font-bold' : ''}">
+                        <span class="text-lg">🏦</span>
+                        <span class="text-[10px] uppercase">Retirar</span>
                     </button>
                     ${currentUser.email === ADMIN_EMAIL ? `
-                        <button onclick="setView('admin')" class="flex flex-col items-center ${currentView === 'admin' ? 'text-amber-500 font-bold' : ''}">
-                            <span>⚙️</span>
-                            <span class="text-[10px]">Admin</span>
+                        <button onclick="setView('admin')" class="flex flex-col items-center ${currentView === 'admin' ? 'text-cyan-400 font-bold' : ''}">
+                            <span class="text-lg">⚙️</span>
+                            <span class="text-[10px] uppercase">Admin</span>
                         </button>
                     ` : ''}
                 </div>
@@ -232,6 +317,9 @@
 
             if (document.getElementById('rechargeForm')) {
                 document.getElementById('rechargeForm').onsubmit = handleRechargeSubmit;
+            }
+            if (document.getElementById('withdrawForm')) {
+                document.getElementById('withdrawForm').onsubmit = handleWithdrawSubmit;
             }
         }
 
@@ -241,7 +329,7 @@
             const pass = document.getElementById('passInput').value;
 
             if (email === ADMIN_EMAIL && pass === ADMIN_PASS) {
-                currentUser = { email: ADMIN_EMAIL, balance: 0, refBalance: 0, isAdmin: true };
+                currentUser = { email: ADMIN_EMAIL, balance: 0, refBalance: 0, isAdmin: true, purchases: {} };
                 currentView = 'admin';
                 listenToData();
                 render();
@@ -253,7 +341,7 @@
 
             if (isRegisterMode) {
                 if (doc.exists) return alert('El usuario ya existe');
-                const newUser = { email, password: pass, balance: 0, refBalance: 0, level: 1 };
+                const newUser = { email, password: pass, balance: 0, refBalance: 0, level: 1, purchases: {} };
                 await userRef.set(newUser);
                 currentUser = newUser;
             } else {
@@ -278,6 +366,11 @@
 
             db.collection('recharges').onSnapshot(snapshot => {
                 rechargesList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                render();
+            });
+
+            db.collection('withdraws').onSnapshot(snapshot => {
+                withdrawsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 render();
             });
         }
@@ -319,16 +412,53 @@
                 status: 'PENDING',
                 date: new Date().toLocaleString()
             });
-            alert('Solicitud enviada al administrador');
+            alert('Solicitud de carga enviada al administrador');
             setView('home');
         }
 
-        async function buyProduct(price) {
-            if ((currentUser.balance || 0) < price) return alert('Saldo insuficiente');
-            await db.collection('users').doc(currentUser.email).update({
-                balance: currentUser.balance - price
+        async function handleWithdrawSubmit(e) {
+            e.preventDefault();
+            const amount = parseFloat(document.getElementById('withdrawAmount').value);
+            const cbu = document.getElementById('cbuInput').value.trim();
+            if (!amount || amount <= 0) return alert('Monto inválido');
+            if ((currentUser.balance || 0) < amount) return alert('Saldo insuficiente');
+
+            await db.collection('withdraws').add({
+                userEmail: currentUser.email,
+                amount,
+                cbu,
+                status: 'PENDING',
+                date: new Date().toLocaleString()
             });
-            alert('¡Inversión realizada con éxito!');
+
+            await db.collection('users').doc(currentUser.email).update({
+                balance: currentUser.balance - amount
+            });
+
+            alert('Solicitud de retiro enviada con éxito');
+            setView('home');
+        }
+
+        async function buyProduct(productId, totalCost) {
+            const product = PRODUCTS.find(p => p.id === productId);
+            const purchases = (currentUser.purchases && currentUser.purchases[productId]) || 0;
+
+            if (purchases >= product.limit) {
+                return alert('Has alcanzado el límite de compra para este producto');
+            }
+
+            if ((currentUser.balance || 0) < totalCost) {
+                return alert('Saldo insuficiente para adquirir este plan');
+            }
+
+            const updatedPurchases = { ...(currentUser.purchases || {}), [productId]: purchases + 1 };
+
+            await db.collection('users').doc(currentUser.email).update({
+                balance: currentUser.balance - totalCost,
+                purchases: updatedPurchases
+            });
+
+            alert(`¡Plan ${product.name} adquirido con éxito!`);
         }
 
         async function updateUserBalance(email, newBalance) {
@@ -341,8 +471,13 @@
             if (doc.exists) {
                 await userRef.update({ balance: (doc.data().balance || 0) + amount });
                 await db.collection('recharges').doc(id).update({ status: 'APPROVED' });
-                alert('Recarga aprobada');
+                alert('Carga aprobada con éxito');
             }
+        }
+
+        async function approveWithdraw(id) {
+            await db.collection('withdraws').doc(id).update({ status: 'APPROVED' });
+            alert('Retiro marcado como completado');
         }
 
         render();
