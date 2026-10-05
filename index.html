@@ -4,25 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CDINVERSIONES - Plataforma de Inversión</title>
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- React & ReactDOM -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- Babel -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen">
-    <div id="root"></div>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
+    <div id="app" class="max-w-md mx-auto min-h-screen flex flex-col justify-between relative bg-slate-900 border-x border-slate-800"></div>
 
-    <script type="text/babel">
-        // Configuración de Firebase con tus claves
+    <script>
         const firebaseConfig = {
           apiKey: "AIzaSyAZdeugWNF6Ncb2nLZ04bEma529e0napZg",
           authDomain: "cdinversiones-7b8ec.firebaseapp.com",
@@ -32,7 +21,6 @@
           appId: "1:50098942707:web:e3e0ccccaa2aa476b43d86"
         };
 
-        // Inicializar Firebase
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
         }
@@ -42,302 +30,322 @@
         const ADMIN_PASS = "somos.9";
         const MP_LINK = "https://link.mercadopago.com.ar/mis4princesas2027";
 
-        // Productos de inversión
         const PRODUCTS = [
-            { id: 1, name: "VIP 1 - Entrada", price: 1000, dailyYield: 120, durationDays: 30, levelRequired: 0 },
-            { id: 2, name: "VIP 2 - Crecimiento", price: 3000, dailyYield: 380, durationDays: 30, levelRequired: 1 },
-            { id: 3, name: "VIP 3 - Pro", price: 7000, dailyYield: 950, durationDays: 30, levelRequired: 2 },
-            { id: 4, name: "VIP 4 - Avanzado", price: 15000, dailyYield: 2100, durationDays: 30, levelRequired: 3 },
-            { id: 5, name: "VIP 5 - Elite", price: 30000, dailyYield: 4500, durationDays: 30, levelRequired: 4 },
-            { id: 6, name: "VIP 6 - Inversor Top", price: 60000, dailyYield: 9600, durationDays: 30, levelRequired: 5 },
-            { id: 7, name: "VIP 7 - Socio Master", price: 120000, dailyYield: 20000, durationDays: 30, levelRequired: 6 }
+            { id: 1, name: "VIP 1 - Entrada", price: 1000, dailyYield: 120 },
+            { id: 2, name: "VIP 2 - Crecimiento", price: 3000, dailyYield: 380 },
+            { id: 3, name: "VIP 3 - Pro", price: 7000, dailyYield: 950 },
+            { id: 4, name: "VIP 4 - Avanzado", price: 15000, dailyYield: 2100 },
+            { id: 5, name: "VIP 5 - Elite", price: 30000, dailyYield: 4500 },
+            { id: 6, name: "VIP 6 - Inversor Top", price: 60000, dailyYield: 9600 },
+            { id: 7, name: "VIP 7 - Socio Master", price: 120000, dailyYield: 20000 }
         ];
 
-        function App() {
-            const [user, setUser] = React.useState(null);
-            const [usersList, setUsersList] = React.useState([]);
-            const [recharges, setRecharges] = React.useState([]);
-            const [view, setView] = React.useState('home'); // home, products, recharges, withdraw, refer, admin, login
-            const [email, setEmail] = React.useState('');
-            const [password, setPassword] = React.useState('');
-            const [isRegister, setIsRegister] = React.useState(false);
-            const [rechargeAmount, setRechargeAmount] = React.useState('');
-            const [proofUrl, setProofUrl] = React.useState('');
-            const [withdrawAmount, setWithdrawAmount] = React.useState('');
-            const [withdrawAlias, setWithdrawAlias] = React.useState('');
+        let currentUser = null;
+        let currentView = 'home';
+        let isRegisterMode = false;
+        let usersList = [];
+        let rechargesList = [];
 
-            // Escuchar usuarios y solicitudes desde Firebase
-            React.useEffect(() => {
-                const unsubscribeUsers = db.collection('users').onSnapshot(snapshot => {
-                    const usersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    setUsersList(usersData);
-                    if (user) {
-                        const currentUserData = usersData.find(u => u.email === user.email);
-                        if (currentUserData) setUser(currentUserData);
-                    }
-                });
-
-                const unsubscribeRecharges = db.collection('recharges').onSnapshot(snapshot => {
-                    const rechargesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    setRecharges(rechargesData);
-                });
-
-                return () => {
-                    unsubscribeUsers();
-                    unsubscribeRecharges();
-                };
-            }, [user?.email]);
-
-            React.useEffect(() => {
-                if (window.lucide) window.lucide.createIcons();
-            });
-
-            // Autenticación / Registro
-            const handleAuth = async (e) => {
-                e.preventDefault();
-                if (!email || !password) return alert('Completa todos los campos');
-
-                if (email === ADMIN_EMAIL && password === ADMIN_PASS) {
-                    const adminData = { email: ADMIN_EMAIL, balance: 0, refBalance: 0, isAdmin: true };
-                    setUser(adminData);
-                    setView('admin');
-                    return;
-                }
-
-                const userRef = db.collection('users').doc(email.toLowerCase());
-                const doc = await userRef.get();
-
-                if (isRegister) {
-                    if (doc.exists) return alert('El usuario ya existe');
-                    const newUser = {
-                        email: email.toLowerCase(),
-                        password,
-                        balance: 0,
-                        refBalance: 0,
-                        checkInDone: false,
-                        lastCheckIn: null,
-                        purchasedProducts: [],
-                        level: 1
-                    };
-                    await userRef.set(newUser);
-                    setUser(newUser);
-                    setView('home');
-                } else {
-                    if (!doc.exists || doc.data().password !== password) {
-                        return alert('Credenciales incorrectas');
-                    }
-                    setUser(doc.data());
-                    setView('home');
-                }
-            };
-
-            // Check-in diario de $100
-            const handleCheckIn = async () => {
-                if (!user) return;
-                const today = new Date().toDateString();
-                if (user.lastCheckIn === today) {
-                    return alert('Ya realizaste tu check-in de hoy');
-                }
-                const newBalance = (user.balance || 0) + 100;
-                await db.collection('users').doc(user.email).update({
-                    balance: newBalance,
-                    lastCheckIn: today,
-                    checkInDone: true
-                });
-                alert('¡Check-in exitoso! Recibiste $100 ARS');
-            };
-
-            // Enviar solicitud de recarga
-            const handleRechargeSubmit = async (e) => {
-                e.preventDefault();
-                if (!rechargeAmount || parseFloat(rechargeAmount) <= 0) return alert('Ingresa un monto válido');
-                await db.collection('recharges').add({
-                    userEmail: user.email,
-                    amount: parseFloat(rechargeAmount),
-                    proofUrl: proofUrl || 'Sin comprobante',
-                    status: 'PENDING',
-                    date: new Date().toLocaleString()
-                });
-                alert('Solicitud enviada a revisión por el administrador');
-                setRechargeAmount('');
-                setProofUrl('');
-            };
-
-            // Comprar Producto
-            const handleBuyProduct = async (product) => {
-                if (!user) return;
-                if ((user.balance || 0) < product.price) {
-                    return alert('Saldo insuficiente. Realiza una recarga.');
-                }
-                const newBalance = user.balance - product.price;
-                const purchasedProducts = user.purchasedProducts || [];
-                purchasedProducts.push({
-                    ...product,
-                    purchaseDate: new Date().toISOString()
-                });
-
-                await db.collection('users').doc(user.email).update({
-                    balance: newBalance,
-                    purchasedProducts
-                });
-                alert(`¡Compraste exitosamente el ${product.name}!`);
-            };
-
-            // Admin: Modificar saldo
-            const handleUpdateBalance = async (targetEmail, currentBalance, amountToAdd) => {
-                const newBalance = Math.max(0, currentBalance + amountToAdd);
-                await db.collection('users').doc(targetEmail).update({ balance: newBalance });
-            };
-
-            // Admin: Aprobar Recarga
-            const handleApproveRecharge = async (recharge) => {
-                const userRef = db.collection('users').doc(recharge.userEmail);
-                const doc = await userRef.get();
-                if (doc.exists) {
-                    const currentBalance = doc.data().balance || 0;
-                    await userRef.update({ balance: currentBalance + recharge.amount });
-                    await db.collection('recharges').doc(recharge.id).update({ status: 'APPROVED' });
-                    alert('Recarga aprobada y saldo acreditado');
-                }
-            };
-
-            // Login Screen
-            if (!user) {
-                return (
-                    <div class="flex items-center justify-center min-h-screen p-4 bg-slate-900">
-                        <div class="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-md border border-slate-700">
+        function render() {
+            const app = document.getElementById('app');
+            if (!currentUser) {
+                app.innerHTML = `
+                    <div class="flex items-center justify-center min-h-screen p-4 w-full">
+                        <div class="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full border border-slate-700">
                             <div class="text-center mb-8">
                                 <h1 class="text-3xl font-extrabold text-amber-500 mb-2">CDINVERSIONES</h1>
                                 <p class="text-slate-400 text-sm">Plataforma Oficial de Inversión</p>
                             </div>
-                            <form onSubmit={handleAuth} class="space-y-4">
+                            <form id="authForm" class="space-y-4">
                                 <div>
                                     <label class="block text-sm font-medium text-slate-300 mb-1">Correo Electrónico</label>
-                                    <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
-                                        class="w-full bg-slate-700 text-white p-3 rounded-lg border border-slate-600 focus:outline-none focus:border-amber-500" placeholder="correo@ejemplo.com" />
+                                    <input type="email" id="emailInput" required class="w-full bg-slate-700 text-white p-3 rounded-lg border border-slate-600 focus:outline-none focus:border-amber-500" placeholder="correo@ejemplo.com">
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-slate-300 mb-1">Contraseña</label>
-                                    <input type="password" required value={password} onChange={e => setPassword(e.target.value)}
-                                        class="w-full bg-slate-700 text-white p-3 rounded-lg border border-slate-600 focus:outline-none focus:border-amber-500" placeholder="••••••••" />
+                                    <input type="password" id="passInput" required class="w-full bg-slate-700 text-white p-3 rounded-lg border border-slate-600 focus:outline-none focus:border-amber-500" placeholder="••••••••">
                                 </div>
                                 <button type="submit" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold p-3 rounded-lg transition-all">
-                                    {isRegister ? 'Crear Cuenta' : 'Iniciar Sesión'}
+                                    ${isRegisterMode ? 'Crear Cuenta' : 'Iniciar Sesión'}
                                 </button>
                             </form>
                             <div class="mt-6 text-center">
-                                <button onClick={() => setIsRegister(!isRegister)} class="text-amber-400 hover:underline text-sm">
-                                    {isRegister ? '¿Ya tienes cuenta? Inicia Sesión' : '¿No tienes cuenta? Regístrate aquí'}
+                                <button onclick="toggleAuthMode()" class="text-amber-400 hover:underline text-sm">
+                                    ${isRegisterMode ? '¿Ya tienes cuenta? Inicia Sesión' : '¿No tienes cuenta? Regístrate aquí'}
                                 </button>
                             </div>
                         </div>
                     </div>
-                );
+                `;
+
+                document.getElementById('authForm').onsubmit = handleAuth;
+                return;
             }
 
-            return (
-                <div class="pb-20 max-w-md mx-auto min-h-screen bg-slate-900 border-x border-slate-800">
-                    <!-- Top Bar -->
+            let mainContent = '';
+
+            if (currentView === 'home') {
+                mainContent = `
+                    <div class="space-y-4">
+                        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex justify-between items-center">
+                            <div>
+                                <h3 class="font-bold text-amber-400">Check-in Diario</h3>
+                                <p class="text-xs text-slate-400">Gana $100 ARS cada 24 horas</p>
+                            </div>
+                            <button onclick="handleCheckIn()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-4 py-2 rounded-lg text-sm">
+                                Reclamar $100
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button onclick="setView('recharges')" class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-col items-center gap-2 hover:border-amber-500">
+                                <span class="text-amber-500 text-xl">⬇</span>
+                                <span class="text-sm font-semibold">Cargar Saldo</span>
+                            </button>
+                            <button onclick="setView('products')" class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-col items-center gap-2 hover:border-amber-500">
+                                <span class="text-amber-500 text-xl">📈</span>
+                                <span class="text-sm font-semibold">Invertir</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else if (currentView === 'products') {
+                mainContent = `
+                    <div class="space-y-4">
+                        <h3 class="text-lg font-bold text-amber-400">Planes de Inversión</h3>
+                        ${PRODUCTS.map(p => `
+                            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex justify-between items-center">
+                                <div>
+                                    <h4 class="font-bold text-white">${p.name}</h4>
+                                    <p class="text-xs text-slate-400">Precio: $${p.price.toLocaleString()} ARS</p>                                     <p class="text-xs text-emerald-400">Ganancia Diaria: $${p.dailyYield.toLocaleString()} ARS</p>
+                                </div>
+                                <button onclick="buyProduct(${p.price})" class="bg-amber-500 text-slate-950 font-bold px-4 py-2 rounded-lg text-sm">
+                                    Invertir
+                                </button>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } else if (currentView === 'recharges') {
+                mainContent = `
+                    <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-4">
+                        <h3 class="text-lg font-bold text-amber-400">Recargar Saldo</h3>
+                        <p class="text-xs text-slate-300">1. Realiza la transferencia al siguiente link de Mercado Pago:</p>
+                        <a href="${MP_LINK}" target="_blank" class="block w-full text-center bg-blue-600 hover:bg-blue-700 text-white font-bold p-3 rounded-lg text-sm">
+                            Pagar con Mercado Pago
+                        </a>
+                        <form id="rechargeForm" class="space-y-3 pt-3 border-t border-slate-700">
+                            <p class="text-xs text-slate-300">2. Ingresa el monto enviado y la URL del comprobante:</p>
+                            <input type="number" id="rechargeAmount" required placeholder="Monto cargado ($)" class="w-full bg-slate-700 text-white p-3 rounded-lg text-sm border border-slate-600">
+                            <input type="text" id="proofUrl" placeholder="Link o nota del comprobante" class="w-full bg-slate-700 text-white p-3 rounded-lg text-sm border border-slate-600">
+                            <button type="submit" class="w-full bg-amber-500 text-slate-950 font-bold p-3 rounded-lg text-sm">
+                                Enviar Comprobante
+                            </button>
+                        </form>
+                    </div>
+                `;
+            } else if (currentView === 'admin' && currentUser.email === ADMIN_EMAIL) {
+                mainContent = `
+                    <div class="space-y-6">
+                        <h3 class="text-lg font-bold text-amber-400">PANEL ADMINISTRADOR</h3>
+                        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                            <h4 class="font-bold text-white mb-3">Usuarios Registrados (${usersList.length})</h4>
+                            <div class="space-y-3 max-h-60 overflow-y-auto">
+                                ${usersList.map(u => `
+                                    <div class="bg-slate-700 p-3 rounded-lg flex justify-between items-center text-xs">
+                                        <div>
+                                            <p class="font-bold text-white">${u.email}</p>                                             <p class="text-amber-400">Saldo: $${u.balance || 0} ARS</p>
+                                        </div>
+                                        <div class="flex gap-1">
+                                            <button onclick="updateUserBalance('${u.email}',${(u.balance || 0) + 1000})" class="bg-emerald-600 text-white px-2 py-1 rounded font-bold">+1000</button>
+                                            <button onclick="updateUserBalance('${u.email}',${Math.max(0, (u.balance || 0) - 1000)})" class="bg-red-600 text-white px-2 py-1 rounded font-bold">-1000</button>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                            <h4 class="font-bold text-white mb-3">Recargas Pendientes</h4>
+                            <div class="space-y-3">
+                                ${rechargesList.filter(r => r.status === 'PENDING').map(r => `
+                                    <div class="bg-slate-700 p-3 rounded-lg space-y-2 text-xs">
+                                        <p><strong class="text-white">Usuario:</strong> ${r.userEmail}</p>                                         <p><strong class="text-amber-400">Monto:</strong> $${r.amount} ARS</p>
+                                        <p class="truncate"><strong class="text-slate-300">Comprobante:</strong> ${r.proofUrl}</p>
+                                        <button onclick="approveRecharge('${r.id}', '${r.userEmail}',${r.amount})" class="w-full bg-emerald-500 text-slate-950 font-bold p-2 rounded">
+                                            Aprobar Recarga
+                                        </button>
+                                    </div>
+                                `).join('')}
+                                ${rechargesList.filter(r => r.status === 'PENDING').length === 0 ? '<p class="text-xs text-slate-400">No hay recargas pendientes.</p>' : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            app.innerHTML = `
+                <div>
                     <div class="bg-slate-800 p-4 border-b border-slate-700 flex justify-between items-center sticky top-0 z-50">
                         <div>
                             <h2 class="text-lg font-bold text-amber-500">CDINVERSIONES</h2>
-                            <p class="text-xs text-slate-400">{user.email}</p>
+                            <p class="text-xs text-slate-400">${currentUser.email}</p>
                         </div>
-                        <button onClick={() => setUser(null)} class="text-slate-400 hover:text-red-400">
-                            <i data-lucide="log-out" class="w-5 h-5"></i>
+                        <button onclick="logout()" class="text-slate-400 hover:text-red-400 text-sm font-bold">
+                            Salir
                         </button>
                     </div>
 
-                    <!-- Main Content -->
                     <div class="p-4 space-y-6">
-                        <!-- Saldo Card -->
                         <div class="bg-gradient-to-br from-amber-500 to-amber-700 rounded-2xl p-5 text-slate-950 shadow-lg">
                             <p class="text-xs font-semibold uppercase tracking-wider opacity-80">Saldo Disponible</p>
-                            <h1 class="text-3xl font-black my-1">${(user.balance || 0).toLocaleString()} ARS</h1>
+                            <h1 class="text-3xl font-black my-1">$${(currentUser.balance || 0).toLocaleString()} ARS</h1>
                             <div class="flex justify-between items-center mt-4 pt-3 border-t border-amber-600/40 text-xs">
-                                <span>Saldo Referidos: ${(user.refBalance || 0).toLocaleString()} ARS</span>
-                                <span class="bg-slate-950/20 px-2 py-1 rounded-full font-bold">Nivel VIP {user.level || 1}</span>
+                                <span>Saldo Referidos: $${(currentUser.refBalance || 0).toLocaleString()} ARS</span>
+                                <span class="bg-slate-950/20 px-2 py-1 rounded-full font-bold">Nivel VIP ${currentUser.level || 1}</span>
                             </div>
                         </div>
 
-                        {/* Vistas */}
-                        {view === 'home' && (
-                            <div class="space-y-4">
-                                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex justify-between items-center">
-                                    <div>
-                                        <h3 class="font-bold text-amber-400">Check-in Diario</h3>
-                                        <p class="text-xs text-slate-400">Gana $100 ARS cada 24 horas</p>
-                                    </div>
-                                    <button onClick={handleCheckIn} class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-4 py-2 rounded-lg text-sm">
-                                        Reclamar $100
-                                    </button>
-                                </div>
+                        ${mainContent}
+                    </div>
+                </div>
 
-                                <div class="grid grid-cols-2 gap-3">
-                                    <button onClick={() => setView('recharges')} class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-col items-center gap-2 hover:border-amber-500">
-                                        <i data-lucide="arrow-down-left" class="text-amber-500"></i>
-                                        <span class="text-sm font-semibold">Cargar Saldo</span>
-                                    </button>
-                                    <button onClick={() => setView('withdraw')} class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-col items-center gap-2 hover:border-amber-500">
-                                        <i data-lucide="arrow-up-right" class="text-amber-500"></i>
-                                        <span class="text-sm font-semibold">Retirar</span>
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+                <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-slate-800 border-t border-slate-700 flex justify-around py-3 text-slate-400 z-50">
+                    <button onclick="setView('home')" class="flex flex-col items-center ${currentView === 'home' ? 'text-amber-500 font-bold' : ''}">
+                        <span>🏠</span>
+                        <span class="text-[10px]">Inicio</span>
+                    </button>
+                    <button onclick="setView('products')" class="flex flex-col items-center ${currentView === 'products' ? 'text-amber-500 font-bold' : ''}">
+                        <span>📈</span>
+                        <span class="text-[10px]">Planes</span>
+                    </button>
+                    <button onclick="setView('recharges')" class="flex flex-col items-center ${currentView === 'recharges' ? 'text-amber-500 font-bold' : ''}">
+                        <span>💳</span>
+                        <span class="text-[10px]">Cargar</span>
+                    </button>
+                    ${currentUser.email === ADMIN_EMAIL ? `
+                        <button onclick="setView('admin')" class="flex flex-col items-center ${currentView === 'admin' ? 'text-amber-500 font-bold' : ''}">
+                            <span>⚙️</span>
+                            <span class="text-[10px]">Admin</span>
+                        </button>
+                    ` : ''}
+                </div>
+            `;
 
-                        {view === 'products' && (
-                            <div class="space-y-4">
-                                <h3 class="text-lg font-bold text-amber-400">Planes de Inversión</h3>
-                                {PRODUCTS.map(p => (
-                                    <div key={p.id} class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex justify-between items-center">
-                                        <div>
-                                            <h4 class="font-bold text-white">{p.name}</h4>
-                                            <p class="text-xs text-slate-400">Precio: ${p.price.toLocaleString()} ARS</p>
-                                            <p class="text-xs text-emerald-400">Ganancia Diaria: ${p.dailyYield.toLocaleString()} ARS</p>
-                                        </div>
-                                        <button onClick={() => handleBuyProduct(p)} class="bg-amber-500 text-slate-950 font-bold px-4 py-2 rounded-lg text-sm">
-                                            Invertir
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+            if (document.getElementById('rechargeForm')) {
+                document.getElementById('rechargeForm').onsubmit = handleRechargeSubmit;
+            }
+        }
 
-                        {view === 'recharges' && (
-                            <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-4">
-                                <h3 class="text-lg font-bold text-amber-400">Recargar Saldo</h3>
-                                <p class="text-xs text-slate-300">1. Realiza la transferencia al siguiente link de Mercado Pago:</p>
-                                <a href={MP_LINK} target="_blank" class="block w-full text-center bg-blue-600 hover:bg-blue-700 text-white font-bold p-3 rounded-lg text-sm">
-                                    Pagar con Mercado Pago
-                                </a>
-                                <form onSubmit={handleRechargeSubmit} class="space-y-3 pt-3 border-t border-slate-700">
-                                    <p class="text-xs text-slate-300">2. Ingresa el monto enviado y la URL de la captura o comprobante:</p>
-                                    <input type="number" required placeholder="Monto cargado ($)" value={rechargeAmount} onChange={e => setRechargeAmount(e.target.value)}
-                                        class="w-full bg-slate-700 text-white p-3 rounded-lg text-sm border border-slate-600" />
-                                    <input type="text" placeholder="Link de la captura de pantalla" value={proofUrl} onChange={e => setProofUrl(e.target.value)}
-                                        class="w-full bg-slate-700 text-white p-3 rounded-lg text-sm border border-slate-600" />
-                                    <button type="submit" class="w-full bg-amber-500 text-slate-950 font-bold p-3 rounded-lg text-sm">
-                                        Enviar Comprobante
-                                    </button>
-                                </form>
-                            </div>
-                        )}
+        async function handleAuth(e) {
+            e.preventDefault();
+            const email = document.getElementById('emailInput').value.trim().toLowerCase();
+            const pass = document.getElementById('passInput').value;
 
-                        {view === 'admin' && user.email === ADMIN_EMAIL && (
-                            <div class="space-y-6">
-                                <h3 class="text-lg font-bold text-amber-400">PANEL ADMINISTRADOR</h3>
+            if (email === ADMIN_EMAIL && pass === ADMIN_PASS) {
+                currentUser = { email: ADMIN_EMAIL, balance: 0, refBalance: 0, isAdmin: true };
+                currentView = 'admin';
+                listenToData();
+                render();
+                return;
+            }
 
-                                <!-- Lista de Usuarios -->
-                                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
-                                    <h4 class="font-bold text-white mb-3">Usuarios Registrados ({usersList.length})</h4>
-                                    <div class="space-y-3 max-h-60 overflow-y-auto">
-                                        {usersList.map(u => (
-                                            <div key={u.id} class="bg-slate-700 p-3 rounded-lg flex justify-between items-center text-xs">
-                                                <div>
-                                                    <p class="font-bold text-white">{u.email}</p>
-                                                    <p class="text-amber-400">Saldo: ${u.balance || 0} ARS</p>
-                                                </div>
-                                                <div class="flex gap-1">
-                                                    <button onClick={() => handleUpdateBalance(u.email, u.balance || 0, 1000)} class="bg-emerald-600 text-white px-2 py-1 rounded font-bold">+1000</button>
-                                                    <butto
+            const userRef = db.collection('users').doc(email);
+            const doc = await userRef.get();
+
+            if (isRegisterMode) {
+                if (doc.exists) return alert('El usuario ya existe');
+                const newUser = { email, password: pass, balance: 0, refBalance: 0, level: 1 };
+                await userRef.set(newUser);
+                currentUser = newUser;
+            } else {
+                if (!doc.exists || doc.data().password !== pass) return alert('Credenciales incorrectas');
+                currentUser = doc.data();
+            }
+
+            currentView = 'home';
+            listenToData();
+            render();
+        }
+
+        function listenToData() {
+            db.collection('users').onSnapshot(snapshot => {
+                usersList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                if (currentUser) {
+                    const match = usersList.find(u => u.email === currentUser.email);
+                    if (match) currentUser = match;
+                }
+                render();
+            });
+
+            db.collection('recharges').onSnapshot(snapshot => {
+                rechargesList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                render();
+            });
+        }
+
+        function toggleAuthMode() {
+            isRegisterMode = !isRegisterMode;
+            render();
+        }
+
+        function setView(view) {
+            currentView = view;
+            render();
+        }
+
+        function logout() {
+            currentUser = null;
+            render();
+        }
+
+        async function handleCheckIn() {
+            const today = new Date().toDateString();
+            if (currentUser.lastCheckIn === today) return alert('Ya realizaste el check-in hoy');
+            await db.collection('users').doc(currentUser.email).update({
+                balance: (currentUser.balance || 0) + 100,
+                lastCheckIn: today
+            });
+            alert('¡Recibiste $100 ARS!');
+        }
+
+        async function handleRechargeSubmit(e) {
+            e.preventDefault();
+            const amount = parseFloat(document.getElementById('rechargeAmount').value);
+            const proof = document.getElementById('proofUrl').value || 'Sin comprobante';
+            if (!amount || amount <= 0) return alert('Monto inválido');
+            await db.collection('recharges').add({
+                userEmail: currentUser.email,
+                amount,
+                proofUrl: proof,
+                status: 'PENDING',
+                date: new Date().toLocaleString()
+            });
+            alert('Solicitud enviada al administrador');
+            setView('home');
+        }
+
+        async function buyProduct(price) {
+            if ((currentUser.balance || 0) < price) return alert('Saldo insuficiente');
+            await db.collection('users').doc(currentUser.email).update({
+                balance: currentUser.balance - price
+            });
+            alert('¡Inversión realizada con éxito!');
+        }
+
+        async function updateUserBalance(email, newBalance) {
+            await db.collection('users').doc(email).update({ balance: newBalance });
+        }
+
+        async function approveRecharge(id, email, amount) {
+            const userRef = db.collection('users').doc(email);
+            const doc = await userRef.get();
+            if (doc.exists) {
+                await userRef.update({ balance: (doc.data().balance || 0) + amount });
+                await db.collection('recharges').doc(id).update({ status: 'APPROVED' });
+                alert('Recarga aprobada');
+            }
+        }
+
+        render();
+    </script>
+</body>
+</html>
