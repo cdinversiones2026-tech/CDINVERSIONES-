@@ -35,6 +35,7 @@
         const MP_LINK = "https://link.mercadopago.com.ar/mis4princesas2027";
         const TELEGRAM_LINK = "https://t.me/+L8HoNnN_7Jc3ZWQx"; 
         const WITHDRAW_FEE = 0.15; // 15% de comisión por retiro
+        const MIN_RECHARGE = 6500; // Mínimo de carga configurado a 6.500 ARS
 
         const LOGO_SVG = `
             <div class="w-full h-full bg-gradient-to-br from-blue-900 via-slate-950 to-cyan-950 flex items-center justify-center p-2 rounded-xl border border-cyan-400/40">
@@ -79,18 +80,44 @@
             return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
         }
 
-        function updateWithdrawCalc() {
-            const input = document.getElementById('withdrawAmount');
-            const calcDiv = document.getElementById('withdrawFeeCalc');
-            if (!input || !calcDiv) return;
-            const amount = parseFloat(input.value) || 0;
-            if (amount <= 0) {
-                calcDiv.innerHTML = 'Monto neto a recibir: <strong class="text-emerald-400">$0 ARS</strong>';
+        function calcularMontoFinal() {
+            const inputMonto = document.getElementById("monto-retiro");
+            const detalleCalculo = document.getElementById("detalle-calculo");
+            if (!inputMonto || !detalleCalculo) return;
+
+            const monto = parseFloat(inputMonto.value);
+
+            if (isNaN(monto) || monto <= 0) {
+                detalleCalculo.innerHTML = "Monto neto a recibir: <strong>$0 ARS</strong>";
                 return;
             }
-            const fee = amount * WITHDRAW_FEE;
-            const net = amount - fee;
-            calcDiv.innerHTML = `Comisión (15%): <strong class="text-amber-400">$${fee.toLocaleString()} ARS</strong> | Recibes: <strong class="text-emerald-400">$${net.toLocaleString()} ARS</strong>`;
+
+            const comision = monto * WITHDRAW_FEE;
+            const montoNeto = monto - comision;
+
+            detalleCalculo.innerHTML = `Comisión (15%): <strong class="text-amber-400">$${comision.toLocaleString()} ARS</strong> | Monto neto a recibir: <strong class="text-emerald-400">$${montoNeto.toLocaleString()} ARS</strong>`;
+        }
+
+        function copyToClipboard(text, msg) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert(msg || 'Copiado al portapapeles');
+            }).catch(() => {
+                alert('No se pudo copiar automáticamente.');
+            });
+        }
+
+        function shareReferral(code) {
+            const siteUrl = window.location.origin + window.location.pathname;
+            const shareText = `🚀 ¡Únete a CDINVERSIONES y empieza a generar rendimientos diarios!\n\n👉 Regístrate aquí: ${siteUrl}\n📌 Mi código de referido: ${code}`;
+            
+            if (navigator.share) {
+                navigator.share({
+                    title: 'CDINVERSIONES',
+                    text: shareText
+                }).catch(() => {});
+            } else {
+                copyToClipboard(shareText, '¡Mensaje y enlace de referido copiados!');
+            }
         }
 
         function render() {
@@ -251,19 +278,34 @@
                 `;
             } else if (currentView === 'referrals') {
                 const activeRefs = currentUser.activeRefsCount || 0;
+                const refCode = currentUser.refCode || 'CD-XXXXX';
+                const siteUrl = window.location.origin + window.location.pathname;
+                const fullShareMessage = `🚀 ¡Únete a CDINVERSIONES y empieza a generar rendimientos diarios!\n\n👉 Regístrate aquí: ${siteUrl}\n📌 Mi código de referido: ${refCode}`;
+
                 mainContent = `
                     <div class="space-y-4">
-                        <div class="bg-slate-900/90 p-5 rounded-xl border border-cyan-500/30 border-glow space-y-3">
+                        <div class="bg-slate-900/90 p-5 rounded-xl border border-cyan-500/30 border-glow space-y-4">
                             <h3 class="text-sm font-bold text-cyan-400 uppercase tracking-wider">SISTEMA DE REFERIDOS</h3>
-                            <p class="text-xs text-slate-300">Invita amigos con tu código único. Al completar **10 referidos activos** (que adquieran al menos 1 producto), recibirás **$5,000 ARS** de bonificación.</p>
+                            <p class="text-xs text-slate-300">Invita amigos con tu código o enlace. Al completar **10 referidos activos** (que adquieran al menos 1 producto), recibirás **$5,000 ARS** de bonificación.</p>
                             
-                            <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 flex justify-between items-center">
+                            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
                                 <div>
-                                    <p class="text-[10px] text-slate-400 uppercase">Tu Código Único</p>
-                                    <p class="text-lg font-black text-cyan-400 tracking-wider">${currentUser.refCode || 'CD-XXXXX'}</p>
+                                    <p class="text-[10px] text-slate-400 uppercase font-semibold">Tu Código Único</p>
+                                    <p class="text-xl font-black text-cyan-400 tracking-wider font-mono mt-0.5">${refCode}</p>
                                 </div>
-                                <button onclick="navigator.clipboard.writeText('${currentUser.refCode}') && alert('Código copiado!')" class="bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500/30 px-3 py-1.5 rounded text-xs font-bold">
-                                    Copiar
+
+                                <div class="grid grid-cols-2 gap-2 pt-1">
+                                    <button onclick="copyToClipboard('${refCode}', '¡Código copiado al portapapeles!')" class="bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 p-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all">
+                                        📋 Copiar Solo Código
+                                    </button>
+                                    
+                                    <button onclick="copyToClipboard('${fullShareMessage.replace(/\n/g, '\\n')}', '¡Enlace y Código copiados al portapapeles!')" class="bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/30 p-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all">
+                                        🔗 Copiar Enlace + Código
+                                    </button>
+                                </div>
+
+                                <button onclick="shareReferral('${refCode}')" class="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-black p-3 rounded-lg text-xs uppercase tracking-wider flex items-center justify-center gap-2">
+                                    📲 Compartir Invitación Completa
                                 </button>
                             </div>
 
@@ -298,10 +340,16 @@
 
                         <form id="rechargeForm" class="space-y-3 pt-3 border-t border-slate-800">
                             <p class="text-xs text-slate-300">2. Notifica la carga en el sistema:</p>
-                            <input type="number" id="rechargeAmount" required placeholder="Monto ($ ARS)" class="w-full bg-slate-950 text-white p-3 rounded-lg text-xs border border-slate-700">
-                            <input type="text" id="proofUrl" placeholder="Número de comprobante / Referencia" class="w-full bg-slate-950 text-white p-3 rounded-lg text-xs border border-slate-700">
+                            <div>
+                                <label class="block text-[10px] font-semibold text-slate-400 mb-1 uppercase">Monto ($ ARS) - Mínimo $6.500 ARS:</label>
+                                <input type="number" id="rechargeAmount" min="${MIN_RECHARGE}" required placeholder="Monto ($ ARS) - Mínimo $6.500" class="w-full bg-slate-950 text-white p-3 rounded-lg text-xs border border-slate-700 focus:outline-none focus:border-cyan-400">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-semibold text-slate-400 mb-1 uppercase">Comprobante:</label>
+                                <input type="text" id="proofUrl" required placeholder="Número de comprobante / Referencia" class="w-full bg-slate-950 text-white p-3 rounded-lg text-xs border border-slate-700 focus:outline-none focus:border-cyan-400">
+                            </div>
                             <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black p-3 rounded-lg text-xs uppercase tracking-wider">
-                                Registrar Solicitud
+                                Registrar Solicitud de Carga
                             </button>
                         </form>
                     </div>
@@ -309,35 +357,29 @@
             } else if (currentView === 'withdraws') {
                 mainContent = `
                     <div class="bg-slate-900/90 p-5 rounded-xl border border-cyan-500/30 border-glow space-y-4">
-                        <h3 class="text-sm font-bold text-cyan-400 uppercase tracking-wider">RETIRAR SALDO</h3>
-                        
-                        <div class="bg-amber-950/40 p-4 rounded-xl border border-amber-500/40 text-xs space-y-1 text-amber-200">
-                            <p class="font-bold uppercase flex items-center gap-1">⚠️ Aviso sobre Comisión por Retiro</p>
-                            <p class="text-[11px] leading-relaxed">
-                                Los retiros tienen un <strong>15% de comisión operativamente deducida</strong>. Revisa el monto neto estimado antes de enviar la solicitud.
-                            </p>
-                        </div>
+                        <h3 class="text-sm font-bold text-cyan-400 uppercase tracking-wider">SOLICITAR RETIRO</h3>
+                        <p class="text-xs text-slate-300">Ingresa el monto que deseas retirar de tu cuenta.</p>
 
-                        <div class="bg-cyan-950/60 p-4 rounded-xl border border-cyan-500/40 text-center space-y-2">
-                            <p class="text-xs text-cyan-200 font-semibold">⚠️ <strong>PASO OBLIGATORIO:</strong> Para solicitar un retiro debes enviar un mensaje a nuestro grupo de Telegram con tus datos de cuenta.</p>
-                            <a href="${TELEGRAM_LINK}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 bg-sky-500 hover:bg-sky-400 text-slate-950 font-black px-4 py-2 rounded-lg text-xs uppercase tracking-wider">
-                                💬 Solicitar Retiro por Telegram
-                            </a>
-                        </div>
-
-                        <form id="withdrawForm" class="space-y-3">
-                            <p class="text-xs text-slate-300">Ingresa los datos para registrar la solicitud:</p>
-                            <input type="number" id="withdrawAmount" required placeholder="Monto a retirar ($ ARS)" oninput="updateWithdrawCalc()" class="w-full bg-slate-950 text-white p-3 rounded-lg text-xs border border-slate-700 focus:outline-none focus:border-cyan-400">
-                            
-                            <div id="withdrawFeeCalc" class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-xs text-slate-300 font-mono">
-                                Monto neto a recibir: <strong class="text-emerald-400">$0 ARS</strong>
+                        <div class="space-y-3">
+                            <div>
+                                <label for="monto-retiro" class="block text-[11px] font-semibold text-slate-300 mb-1 uppercase">Monto a retirar ($):</label>
+                                <input type="number" id="monto-retiro" placeholder="Ej: 10000" min="1" oninput="calcularMontoFinal()" class="w-full bg-slate-950 text-white p-3 rounded-lg text-xs border border-slate-700 focus:outline-none focus:border-cyan-400">
                             </div>
 
-                            <input type="text" id="cbuInput" required placeholder="CBU / CVU o Alias de destino" class="w-full bg-slate-950 text-white p-3 rounded-lg text-xs border border-slate-700 focus:outline-none focus:border-cyan-400">
-                            <button type="submit" class="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-black p-3 rounded-lg text-xs uppercase tracking-wider">
-                                Confirmar Solicitud de Retiro
+                            <div class="comision-info bg-amber-950/40 p-4 rounded-xl border border-amber-500/40 text-xs space-y-2 text-amber-200">
+                                <p class="font-bold flex items-center gap-1">⚠️ <strong>Aviso importante:</strong> Los retiros tienen una comisión del <strong>15%</strong> por costos operacionales.</p>
+                                <p id="detalle-calculo" class="text-xs text-slate-300 font-mono pt-1 border-t border-amber-500/20">Monto neto a recibir: <strong class="text-emerald-400">$0 ARS</strong></p>
+                            </div>
+
+                            <div>
+                                <label for="cbuInput" class="block text-[11px] font-semibold text-slate-300 mb-1 uppercase">CBU / CVU o Alias de destino:</label>
+                                <input type="text" id="cbuInput" required placeholder="Ej: alias.mp o CBU" class="w-full bg-slate-950 text-white p-3 rounded-lg text-xs border border-slate-700 focus:outline-none focus:border-cyan-400">
+                            </div>
+
+                            <button onclick="solicitarRetiro()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-black p-3 rounded-lg text-xs uppercase tracking-wider flex items-center justify-center gap-2">
+                                💬 Solicitar Retiro por Telegram
                             </button>
-                        </form>
+                        </div>
                     </div>
                 `;
             } else if (currentView === 'admin' && currentUser.email === ADMIN_EMAIL) {
@@ -463,7 +505,6 @@
             `;
 
             if (document.getElementById('rechargeForm')) document.getElementById('rechargeForm').onsubmit = handleRechargeSubmit;
-            if (document.getElementById('withdrawForm')) document.getElementById('withdrawForm').onsubmit = handleWithdrawSubmit;
             
             startLiveTimers();
         }
@@ -647,8 +688,15 @@
         async function handleRechargeSubmit(e) {
             e.preventDefault();
             const amount = parseFloat(document.getElementById('rechargeAmount').value);
-            const proof = document.getElementById('proofUrl').value || 'Sin comprobante';
-            if (!amount || amount <= 0) return alert('Monto inválido');
+            const proof = (document.getElementById('proofUrl').value || '').trim();
+
+            if (isNaN(amount) || amount < MIN_RECHARGE) {
+                return alert(`El monto mínimo para cargar es de $${MIN_RECHARGE.toLocaleString()} ARS`);
+            }
+
+            if (!proof) {
+                return alert('Por favor, ingresa el número o referencia del comprobante');
+            }
             
             await db.collection('recharges').add({
                 userEmail: currentUser.email,
@@ -662,32 +710,55 @@
             window.location.href = TELEGRAM_LINK;
         }
 
-        async function handleWithdrawSubmit(e) {
-            e.preventDefault();
-            const amount = parseFloat(document.getElementById('withdrawAmount').value);
-            const cbu = document.getElementById('cbuInput').value.trim();
-            if (!amount || amount <= 0) return alert('Monto inválido');
-            if ((currentUser.balance || 0) < amount) return alert('Saldo insuficiente');
+        async function solicitarRetiro() {
+            const inputMonto = document.getElementById("monto-retiro");
+            const cbuInput = document.getElementById("cbuInput");
+            const monto = parseFloat(inputMonto ? inputMonto.value : 0);
+            const cbu = cbuInput ? cbuInput.value.trim() : "";
 
-            const fee = amount * WITHDRAW_FEE;
-            const netAmount = amount - fee;
+            if (isNaN(monto) || monto <= 0) {
+                alert("Por favor, ingresa un monto válido para retirar.");
+                return;
+            }
+
+            if (!cbu) {
+                alert("Por favor, ingresa un CBU/CVU o Alias de destino.");
+                return;
+            }
+
+            if ((currentUser.balance || 0) < monto) {
+                alert("Saldo insuficiente en tu cuenta.");
+                return;
+            }
+
+            const comision = monto * WITHDRAW_FEE;
+            const montoNeto = monto - comision;
 
             await db.collection('withdraws').add({
                 userEmail: currentUser.email,
-                amount,
-                fee,
-                netAmount,
-                cbu,
+                amount: monto,
+                fee: comision,
+                netAmount: montoNeto,
+                cbu: cbu,
                 status: 'PENDING',
                 date: new Date().toLocaleString()
             });
 
             await db.collection('users').doc(currentUser.email).update({
-                balance: currentUser.balance - amount
+                balance: currentUser.balance - monto
             });
 
-            alert(`Solicitud registrada por $${amount} ARS (Neto a recibir: $${netAmount} ARS). Serás redirigido al grupo de Telegram.`);
-            window.location.href = TELEGRAM_LINK;
+            const mensaje = encodeURIComponent(
+                `Hola, quiero solicitar un retiro.\n\n` +
+                `👤 Usuario: ${currentUser.email}\n` +
+                `📌 Monto solicitado: $${monto} ARS\n` +
+                `🔻 Comisión (15%): $${comision} ARS\n` +
+                `💵 Monto a recibir: $${montoNeto} ARS\n` +
+                `🏦 CBU/Alias: ${cbu}`
+            );
+
+            alert(`Solicitud registrada. Abrirás Telegram para finalizar la solicitud.`);
+            window.open(`${TELEGRAM_LINK}?text=${mensaje}`, "_blank");
         }
 
         async function setManualBalance(email, inputId) {
