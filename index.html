@@ -10,6 +10,115 @@
     <style>
         .glow-cyan { text-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
         .border-glow { box-shadow: 0 0 15px rgba(56, 189, 248, 0.15); }
+        
+        /* Modal Avisos Estilo Neón */
+        .cd-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(2, 6, 23, 0.85);
+            backdrop-filter: blur(6px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            padding: 16px;
+        }
+
+        .cd-modal-card {
+            background: #0f172a;
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            border-radius: 16px;
+            padding: 24px 20px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 0 25px rgba(56, 189, 248, 0.2);
+            text-align: center;
+            font-family: system-ui, -apple-system, sans-serif;
+            color: #f8fafc;
+            animation: cdModalApprove 0.3s ease-out;
+        }
+
+        @keyframes cdModalApprove {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .cd-badge-alert {
+            background: rgba(56, 189, 248, 0.1);
+            color: #38bdf8;
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-bottom: 8px;
+        }
+
+        .cd-modal-header h2 {
+            margin: 4px 0 16px 0;
+            font-size: 20px;
+            font-weight: 800;
+            color: #ffffff;
+        }
+
+        .cd-modal-list {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 20px 0;
+            text-align: left;
+        }
+
+        .cd-modal-list li {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            background: #1e293b;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .cd-icon { font-size: 18px; }
+
+        .cd-modal-list strong {
+            display: block;
+            color: #94a3b8;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .cd-modal-list span {
+            color: #38bdf8;
+            font-weight: 700;
+        }
+
+        .cd-btn-primary {
+            width: 100%;
+            background: linear-gradient(90deg, #38bdf8, #2563eb);
+            color: #020617;
+            border: none;
+            padding: 12px 20px;
+            font-size: 14px;
+            font-weight: 900;
+            border-radius: 8px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
+            transition: all 0.2s;
+        }
+
+        .cd-btn-primary:hover {
+            opacity: 0.9;
+        }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen font-sans">
@@ -34,8 +143,10 @@
         const ADMIN_PASS = "somos.9";
         const MP_LINK = "https://link.mercadopago.com.ar/mis4princesas2027";
         const TELEGRAM_LINK = "https://t.me/+L8HoNnN_7Jc3ZWQx"; 
-        const WITHDRAW_FEE = 0.15; // 15% de comisión por retiro
-        const MIN_RECHARGE = 6500; // Mínimo de carga configurado a 6.500 ARS
+        const WITHDRAW_FEE = 0.15;
+        const MIN_RECHARGE = 6500;
+        const MIN_WITHDRAW = 1000;
+        const MAX_WITHDRAW = 50000;
 
         const LOGO_SVG = `
             <div class="w-full h-full bg-gradient-to-br from-blue-900 via-slate-950 to-cyan-950 flex items-center justify-center p-2 rounded-xl border border-cyan-400/40">
@@ -66,6 +177,7 @@
         let rechargesList = [];
         let withdrawsList = [];
         let timerInterval = null;
+        let modalClosed = false;
 
         function generateRefCode() {
             return 'CD-' + Math.random().toString(36).substring(2, 7).toUpperCase();
@@ -78,6 +190,12 @@
             const mins = Math.floor((totalSecs % 3600) / 60);
             const secs = totalSecs % 60;
             return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function cerrarAviso() {
+            modalClosed = true;
+            const modal = document.getElementById("modalAviso");
+            if (modal) modal.style.display = "none";
         }
 
         function calcularMontoFinal() {
@@ -124,6 +242,7 @@
             const app = document.getElementById('app');
             
             if (!currentUser) {
+                modalClosed = false;
                 app.innerHTML = `
                     <div class="flex items-center justify-center min-h-screen p-4 w-full">
                         <div class="bg-slate-900/90 p-6 rounded-2xl border border-cyan-500/30 border-glow w-full text-center">
@@ -164,6 +283,60 @@
 
                 document.getElementById('authForm').onsubmit = handleAuth;
                 return;
+            }
+
+            let modalHtml = '';
+            if (!modalClosed && !currentUser.isAdmin) {
+                modalHtml = `
+                    <div id="modalAviso" class="cd-modal-overlay">
+                      <div class="cd-modal-card">
+                        <div class="cd-modal-header">
+                          <span class="cd-badge-alert">AVISO IMPORTANTE</span>
+                          <h2>Términos de Operación</h2>
+                        </div>
+                        
+                        <ul class="cd-modal-list">
+                          <li>
+                            <span class="cd-icon">💳</span>
+                            <div>
+                              <strong>Mínimo de recarga</strong>
+                              <span>$6.500 ARS</span>
+                            </div>
+                          </li>
+                          <li>
+                            <span class="cd-icon">💸</span>
+                            <div>
+                              <strong>Mínimo a retirar</strong>
+                              <span>$1.000 ARS</span>
+                            </div>
+                          </li>
+                          <li>
+                            <span class="cd-icon">📉</span>
+                            <div>
+                              <strong>Comisión al retirar</strong>
+                              <span>15%</span>
+                            </div>
+                          </li>
+                          <li>
+                            <span class="cd-icon">⏱️</span>
+                            <div>
+                              <strong>Frecuencia de retiro</strong>
+                              <span>1 retiro cada 48 hs</span>
+                            </div>
+                          </li>
+                          <li>
+                            <span class="cd-icon">🔒</span>
+                            <div>
+                              <strong>Máximo de retiro</strong>
+                              <span>$50.000 ARS</span>
+                            </div>
+                          </li>
+                        </ul>
+
+                        <button class="cd-btn-primary" onclick="cerrarAviso()">OK</button>
+                      </div>
+                    </div>
+                `;
             }
 
             let mainContent = '';
@@ -259,11 +432,18 @@
                                         <div class="bg-slate-900/90 p-4 rounded-xl border ${limitReached ? 'border-slate-800 opacity-60' : 'border-slate-800 hover:border-cyan-500/50'} transition-all">
                                             <div class="flex justify-between items-start mb-2">
                                                 <div>
-                                                    <h4 class="font-bold text-white text-sm">${p.name}</h4>                                                     <p class="text-[11px] text-cyan-300 font-semibold">Valor de Compra: <span class="text-white font-bold">$${p.price.toLocaleString()} ARS</span></p>
+                                                    <h4 class="font-bold text-white text-sm">${p.name}</h4>
+                                                    <p class="text-[11px] text-cyan-300 font-semibold">Valor de Compra: <span class="text-white font-bold">$${p.price.toLocaleString()} ARS</span></p>
                                                     <p class="text-[10px] text-slate-400">Plazo: ${p.days} días • Rendimiento Diario: $${p.dailyYield.toLocaleString()} ARS</p>
                                                 </div>
                                                 <span class="text-[10px] bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded font-bold">
-                                                    Límite: ${purchases}/${p.limit}                                                 </span>                                             </div>                                             <div class="flex justify-between items-center pt-2 border-t border-slate-800/80 mt-1">                                                 <div>                                                     <p class="text-[10px] text-slate-400 uppercase">Total Retorno al Finalizar</p>                                                     <p class="text-xs font-black text-emerald-400">$${p.total.toLocaleString()} ARS</p>
+                                                    Límite: ${purchases}/${p.limit}
+                                                </span>
+                                            </div>
+                                            <div class="flex justify-between items-center pt-2 border-t border-slate-800/80 mt-1">
+                                                <div>
+                                                    <p class="text-[10px] text-slate-400 uppercase">Total Retorno al Finalizar</p>
+                                                    <p class="text-xs font-black text-emerald-400">$${p.total.toLocaleString()} ARS</p>
                                                 </div>
                                                 <button onclick="buyProduct(${p.id})" ${limitReached ? 'disabled' : ''} class="${limitReached ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-black'} px-4 py-2 rounded-lg text-xs uppercase tracking-wide">
                                                     ${limitReached ? 'Agotado' : 'Adquirir'}
@@ -362,12 +542,12 @@
 
                         <div class="space-y-3">
                             <div>
-                                <label for="monto-retiro" class="block text-[11px] font-semibold text-slate-300 mb-1 uppercase">Monto a retirar ($):</label>
-                                <input type="number" id="monto-retiro" placeholder="Ej: 10000" min="1" oninput="calcularMontoFinal()" class="w-full bg-slate-950 text-white p-3 rounded-lg text-xs border border-slate-700 focus:outline-none focus:border-cyan-400">
+                                <label for="monto-retiro" class="block text-[11px] font-semibold text-slate-300 mb-1 uppercase">Monto a retirar ($ ARS):</label>
+                                <input type="number" id="monto-retiro" placeholder="Min $1.000 - Max $50.000" min="${MIN_WITHDRAW}" max="${MAX_WITHDRAW}" oninput="calcularMontoFinal()" class="w-full bg-slate-950 text-white p-3 rounded-lg text-xs border border-slate-700 focus:outline-none focus:border-cyan-400">
                             </div>
 
                             <div class="comision-info bg-amber-950/40 p-4 rounded-xl border border-amber-500/40 text-xs space-y-2 text-amber-200">
-                                <p class="font-bold flex items-center gap-1">⚠️ <strong>Aviso importante:</strong> Los retiros tienen una comisión del <strong>15%</strong> por costos operacionales.</p>
+                                <p class="font-bold flex items-center gap-1">⚠️ <strong>Reglas de Retiro:</strong> Mínimo $1.000 ARS | Máximo $50.000 ARS | 1 retiro cada 48 hs. Comisión del <strong>15%</strong>.</p>
                                 <p id="detalle-calculo" class="text-xs text-slate-300 font-mono pt-1 border-t border-amber-500/20">Monto neto a recibir: <strong class="text-emerald-400">$0 ARS</strong></p>
                             </div>
 
@@ -448,6 +628,7 @@
             }
 
             app.innerHTML = `
+                ${modalHtml}
                 <div>
                     <div class="bg-slate-900/90 backdrop-blur p-4 border-b border-slate-800 flex justify-between items-center sticky top-0 z-50">
                         <div class="flex items-center gap-3">
@@ -568,6 +749,7 @@
                     purchases: {},
                     activePlans: [],
                     lastCheckInTimestamp: 0,
+                    lastWithdrawTimestamp: 0,
                     refCode: myRefCode,
                     referredBy: refCodeEntered || null,
                     activeRefsCount: 0,
@@ -715,20 +897,25 @@
             const cbuInput = document.getElementById("cbuInput");
             const monto = parseFloat(inputMonto ? inputMonto.value : 0);
             const cbu = cbuInput ? cbuInput.value.trim() : "";
+            const now = Date.now();
+            const lastWithdraw = currentUser.lastWithdrawTimestamp || 0;
+            const hoursSinceLastWithdraw = (now - lastWithdraw) / (1000 * 60 * 60);
 
-            if (isNaN(monto) || monto <= 0) {
-                alert("Por favor, ingresa un monto válido para retirar.");
-                return;
+            if (hoursSinceLastWithdraw < 48) {
+                const hoursLeft = Math.ceil(48 - hoursSinceLastWithdraw);
+                return alert(`Solo puedes realizar un retiro cada 48 horas. Vuelve a intentarlo en aproximadamente ${hoursLeft} hs.`);
+            }
+
+            if (isNaN(monto) || monto < MIN_WITHDRAW || monto > MAX_WITHDRAW) {
+                return alert(`El monto de retiro debe estar entre $${MIN_WITHDRAW.toLocaleString()} ARS y $${MAX_WITHDRAW.toLocaleString()} ARS.`);
             }
 
             if (!cbu) {
-                alert("Por favor, ingresa un CBU/CVU o Alias de destino.");
-                return;
+                return alert("Por favor, ingresa un CBU/CVU o Alias de destino.");
             }
 
             if ((currentUser.balance || 0) < monto) {
-                alert("Saldo insuficiente en tu cuenta.");
-                return;
+                return alert("Saldo insuficiente en tu cuenta.");
             }
 
             const comision = monto * WITHDRAW_FEE;
@@ -745,7 +932,8 @@
             });
 
             await db.collection('users').doc(currentUser.email).update({
-                balance: currentUser.balance - monto
+                balance: currentUser.balance - monto,
+                lastWithdrawTimestamp: now
             });
 
             const mensaje = encodeURIComponent(
