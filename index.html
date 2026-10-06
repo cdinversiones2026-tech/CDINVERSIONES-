@@ -20,7 +20,7 @@
             height: 100%;
             background: rgba(2, 6, 23, 0.85);
             backdrop-filter: blur(6px);
-            display: flex;
+            display: none; /* Se activa mediante JavaScript al iniciar sesión */
             justify-content: center;
             align-items: center;
             z-index: 10000;
@@ -122,6 +122,57 @@
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen font-sans">
+
+    <!-- Modal de Avisos Fijo en HTML -->
+    <div id="modalAviso" class="cd-modal-overlay">
+      <div class="cd-modal-card">
+        <div class="cd-modal-header">
+          <span class="cd-badge-alert">AVISO IMPORTANTE</span>
+          <h2>Términos de Operación</h2>
+        </div>
+        
+        <ul class="cd-modal-list">
+          <li>
+            <span class="cd-icon">💳</span>
+            <div>
+              <strong>Mínimo de recarga</strong>
+              <span>$6.500 ARS</span>
+            </div>
+          </li>
+          <li>
+            <span class="cd-icon">💸</span>
+            <div>
+              <strong>Mínimo a retirar</strong>
+              <span>$1.000 ARS</span>
+            </div>
+          </li>
+          <li>
+            <span class="cd-icon">📉</span>
+            <div>
+              <strong>Comisión al retirar</strong>
+              <span>15%</span>
+            </div>
+          </li>
+          <li>
+            <span class="cd-icon">⏱️</span>
+            <div>
+              <strong>Frecuencia de retiro</strong>
+              <span>1 retiro cada 48 hs</span>
+            </div>
+          </li>
+          <li>
+            <span class="cd-icon">🔒</span>
+            <div>
+              <strong>Máximo de retiro</strong>
+              <span>$50.000 ARS</span>
+            </div>
+          </li>
+        </ul>
+
+        <button class="cd-btn-primary" onclick="cerrarAviso()">OK</button>
+      </div>
+    </div>
+
     <div id="app" class="max-w-md mx-auto min-h-screen flex flex-col justify-between relative bg-slate-950 border-x border-slate-800/60 pb-20"></div>
 
     <script>
@@ -177,7 +228,6 @@
         let rechargesList = [];
         let withdrawsList = [];
         let timerInterval = null;
-        let modalClosed = false;
 
         function generateRefCode() {
             return 'CD-' + Math.random().toString(36).substring(2, 7).toUpperCase();
@@ -192,8 +242,12 @@
             return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
         }
 
+        function mostrarAviso() {
+            const modal = document.getElementById("modalAviso");
+            if (modal) modal.style.display = "flex";
+        }
+
         function cerrarAviso() {
-            modalClosed = true;
             const modal = document.getElementById("modalAviso");
             if (modal) modal.style.display = "none";
         }
@@ -242,7 +296,6 @@
             const app = document.getElementById('app');
             
             if (!currentUser) {
-                modalClosed = false;
                 app.innerHTML = `
                     <div class="flex items-center justify-center min-h-screen p-4 w-full">
                         <div class="bg-slate-900/90 p-6 rounded-2xl border border-cyan-500/30 border-glow w-full text-center">
@@ -283,60 +336,6 @@
 
                 document.getElementById('authForm').onsubmit = handleAuth;
                 return;
-            }
-
-            let modalHtml = '';
-            if (!modalClosed && !currentUser.isAdmin) {
-                modalHtml = `
-                    <div id="modalAviso" class="cd-modal-overlay">
-                      <div class="cd-modal-card">
-                        <div class="cd-modal-header">
-                          <span class="cd-badge-alert">AVISO IMPORTANTE</span>
-                          <h2>Términos de Operación</h2>
-                        </div>
-                        
-                        <ul class="cd-modal-list">
-                          <li>
-                            <span class="cd-icon">💳</span>
-                            <div>
-                              <strong>Mínimo de recarga</strong>
-                              <span>$6.500 ARS</span>
-                            </div>
-                          </li>
-                          <li>
-                            <span class="cd-icon">💸</span>
-                            <div>
-                              <strong>Mínimo a retirar</strong>
-                              <span>$1.000 ARS</span>
-                            </div>
-                          </li>
-                          <li>
-                            <span class="cd-icon">📉</span>
-                            <div>
-                              <strong>Comisión al retirar</strong>
-                              <span>15%</span>
-                            </div>
-                          </li>
-                          <li>
-                            <span class="cd-icon">⏱️</span>
-                            <div>
-                              <strong>Frecuencia de retiro</strong>
-                              <span>1 retiro cada 48 hs</span>
-                            </div>
-                          </li>
-                          <li>
-                            <span class="cd-icon">🔒</span>
-                            <div>
-                              <strong>Máximo de retiro</strong>
-                              <span>$50.000 ARS</span>
-                            </div>
-                          </li>
-                        </ul>
-
-                        <button class="cd-btn-primary" onclick="cerrarAviso()">OK</button>
-                      </div>
-                    </div>
-                `;
             }
 
             let mainContent = '';
@@ -628,7 +627,6 @@
             }
 
             app.innerHTML = `
-                ${modalHtml}
                 <div>
                     <div class="bg-slate-900/90 backdrop-blur p-4 border-b border-slate-800 flex justify-between items-center sticky top-0 z-50">
                         <div class="flex items-center gap-3">
@@ -678,7 +676,7 @@
                     </button>
                     ${currentUser.email === ADMIN_EMAIL ? `
                         <button onclick="setView('admin')" class="flex flex-col items-center ${currentView === 'admin' ? 'text-cyan-400 font-bold' : ''}">
-                            <span class="text-lg">⚙️</span>
+                            <span class="text-lg">⚙️️</span>
                             <span class="text-[10px] uppercase">Admin</span>
                         </button>
                     ` : ''}
@@ -766,6 +764,7 @@
             currentView = 'home';
             listenToData();
             render();
+            mostrarAviso(); // Fuerza la apertura del modal directamente al iniciar sesión
         }
 
         function listenToData() {
@@ -801,6 +800,7 @@
 
         function logout() {
             currentUser = null;
+            cerrarAviso();
             render();
         }
 
