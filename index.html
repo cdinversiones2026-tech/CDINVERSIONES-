@@ -20,7 +20,7 @@
             height: 100%;
             background: rgba(2, 6, 23, 0.85);
             backdrop-filter: blur(6px);
-            display: none; /* Se activa mediante JavaScript al iniciar sesión */
+            display: none;
             justify-content: center;
             align-items: center;
             z-index: 10000;
@@ -161,6 +161,13 @@
             </div>
           </li>
           <li>
+            <span class="cd-icon">📅</span>
+            <div>
+              <strong>Días y horarios de retiros</strong>
+              <span>Lun a Vie de 10:00 a 18:00 hs</span>
+            </div>
+          </li>
+          <li>
             <span class="cd-icon">🔒</span>
             <div>
               <strong>Máximo de retiro</strong>
@@ -169,7 +176,7 @@
           </li>
         </ul>
 
-        <button class="cd-btn-primary" onclick="cerrarAviso()">OK</button>
+        <button class="cd-btn-primary" onclick="cerrarAviso()">ENTENDIDO / ACEPTAR</button>
       </div>
     </div>
 
@@ -546,8 +553,14 @@
                             </div>
 
                             <div class="comision-info bg-amber-950/40 p-4 rounded-xl border border-amber-500/40 text-xs space-y-2 text-amber-200">
-                                <p class="font-bold flex items-center gap-1">⚠️ <strong>Reglas de Retiro:</strong> Mínimo $1.000 ARS | Máximo $50.000 ARS | 1 retiro cada 48 hs. Comisión del <strong>15%</strong>.</p>
-                                <p id="detalle-calculo" class="text-xs text-slate-300 font-mono pt-1 border-t border-amber-500/20">Monto neto a recibir: <strong class="text-emerald-400">$0 ARS</strong></p>
+                                <p class="font-bold flex items-center gap-1">⚠️ <strong>Reglas de Retiro:</strong></p>
+                                <ul class="list-disc list-inside space-y-1 text-[11px]">
+                                    <li>Mínimo $1.000 ARS | Máximo $50.000 ARS</li>
+                                    <li>1 retiro cada 48 hs.</li>
+                                    <li><strong>Horario de retiros:</strong> Lunes a Viernes de 10:00 a 18:00 hs.</li>
+                                    <li>Comisión de gestión: <strong>15%</strong>.</li>
+                                </ul>
+                                <p id="detalle-calculo" class="text-xs text-slate-300 font-mono pt-2 border-t border-amber-500/20">Monto neto a recibir: <strong class="text-emerald-400">$0 ARS</strong></p>
                             </div>
 
                             <div>
@@ -676,7 +689,7 @@
                     </button>
                     ${currentUser.email === ADMIN_EMAIL ? `
                         <button onclick="setView('admin')" class="flex flex-col items-center ${currentView === 'admin' ? 'text-cyan-400 font-bold' : ''}">
-                            <span class="text-lg">⚙️️</span>
+                            <span class="text-lg">⚙</span>
                             <span class="text-[10px] uppercase">Admin</span>
                         </button>
                     ` : ''}
@@ -764,7 +777,7 @@
             currentView = 'home';
             listenToData();
             render();
-            mostrarAviso(); // Fuerza la apertura del modal directamente al iniciar sesión
+            mostrarAviso();
         }
 
         function listenToData() {
