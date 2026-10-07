@@ -438,18 +438,11 @@
                                         <div class="bg-slate-900/90 p-4 rounded-xl border ${limitReached ? 'border-slate-800 opacity-60' : 'border-slate-800 hover:border-cyan-500/50'} transition-all">
                                             <div class="flex justify-between items-start mb-2">
                                                 <div>
-                                                    <h4 class="font-bold text-white text-sm">${p.name}</h4>
-                                                    <p class="text-[11px] text-cyan-300 font-semibold">Valor de Compra: <span class="text-white font-bold">$${p.price.toLocaleString()} ARS</span></p>
+                                                    <h4 class="font-bold text-white text-sm">${p.name}</h4>                                                     <p class="text-[11px] text-cyan-300 font-semibold">Valor de Compra: <span class="text-white font-bold">$${p.price.toLocaleString()} ARS</span></p>
                                                     <p class="text-[10px] text-slate-400">Plazo: ${p.days} días • Rendimiento Diario: $${p.dailyYield.toLocaleString()} ARS</p>
                                                 </div>
                                                 <span class="text-[10px] bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded font-bold">
-                                                    Límite: ${purchases}/${p.limit}
-                                                </span>
-                                            </div>
-                                            <div class="flex justify-between items-center pt-2 border-t border-slate-800/80 mt-1">
-                                                <div>
-                                                    <p class="text-[10px] text-slate-400 uppercase">Total Retorno al Finalizar</p>
-                                                    <p class="text-xs font-black text-emerald-400">$${p.total.toLocaleString()} ARS</p>
+                                                    Límite: ${purchases}/${p.limit}                                                 </span>                                             </div>                                             <div class="flex justify-between items-center pt-2 border-t border-slate-800/80 mt-1">                                                 <div>                                                     <p class="text-[10px] text-slate-400 uppercase">Total Retorno al Finalizar</p>                                                     <p class="text-xs font-black text-emerald-400">$${p.total.toLocaleString()} ARS</p>
                                                 </div>
                                                 <button onclick="buyProduct(${p.id})" ${limitReached ? 'disabled' : ''} class="${limitReached ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-black'} px-4 py-2 rounded-lg text-xs uppercase tracking-wide">
                                                     ${limitReached ? 'Agotado' : 'Adquirir'}
@@ -589,20 +582,32 @@
                         <div class="bg-slate-900/90 p-4 rounded-xl border border-slate-800">
                             <h4 class="font-bold text-white text-xs mb-3 uppercase">Usuarios Registrados (${usersList.length})</h4>
                             <div class="space-y-3 max-h-96 overflow-y-auto">
-                                ${usersList.map(u => `
-                                    <div class="bg-slate-950 p-3 rounded border border-slate-800 space-y-2">
-                                        <div class="break-all">
-                                            <p class="font-bold text-white text-xs">${u.email}</p>
-                                            <p class="text-[10px] text-slate-400">Código: <span class="text-cyan-400 font-mono">${u.refCode || 'N/A'}</span> | Ref. Activos: <span class="text-emerald-400 font-bold">${u.activeRefsCount || 0}</span></p>
+                                ${usersList.map(u => {
+                                    const plansText = (u.activePlans && u.activePlans.length > 0) 
+                                        ? u.activePlans.map(p => p.name).join(', ') 
+                                        : 'Sin planes activos';
+                                    const userBalance = u.balance || 0;
+
+                                    return `
+                                        <div class="bg-slate-950 p-3 rounded border border-slate-800 space-y-2">
+                                            <div class="break-all space-y-1">
+                                                <p class="font-bold text-white text-xs">${u.email}</p>
+                                                <p class="text-[11px] text-emerald-400 font-semibold">
+                                                    📦 <strong>Planes:</strong> ${plansText}                                                 </p>                                                 <p class="text-[11px] text-cyan-300 font-semibold">                                                     💵 <strong>Saldo Actual:</strong> $${userBalance.toLocaleString()} ARS
+                                                </p>
+                                                <p class="text-[10px] text-slate-400">
+                                                    Código: <span class="text-cyan-400 font-mono">${u.refCode || 'N/A'}</span> | Ref. Activos: <span class="text-emerald-400 font-bold">${u.activeRefsCount || 0}</span>
+                                                </p>
+                                            </div>
+                                            <div class="flex items-center gap-2 pt-1 border-t border-slate-900">
+                                                <input type="number" id="balanceInput_${u.id}" value="${userBalance}" class="w-full bg-slate-900 text-cyan-300 font-bold p-2 rounded text-xs border border-slate-700 focus:outline-none focus:border-cyan-400">
+                                                <button onclick="setManualBalance('${u.email}', 'balanceInput_${u.id}')" class="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black px-3 py-2 rounded text-xs flex-shrink-0 uppercase">
+                                                    Guardar
+                                                </button>
+                                            </div>
                                         </div>
-                                        <div class="flex items-center gap-2 pt-1 border-t border-slate-900">
-                                            <input type="number" id="balanceInput_${u.id}" value="${u.balance || 0}" class="w-full bg-slate-900 text-cyan-300 font-bold p-2 rounded text-xs border border-slate-700 focus:outline-none focus:border-cyan-400">
-                                            <button onclick="setManualBalance('${u.email}', 'balanceInput_${u.id}')" class="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black px-3 py-2 rounded text-xs flex-shrink-0 uppercase">
-                                                Guardar
-                                            </button>
-                                        </div>
-                                    </div>
-                                `).join('')}
+                                    `;
+                                }).join('')}
                             </div>
                         </div>
 
