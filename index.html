@@ -610,12 +610,19 @@
                             <h4 class="font-bold text-white text-xs mb-3 uppercase">Solicitudes de Carga</h4>
                             <div class="space-y-2">
                                 ${rechargesList.filter(r => r.status === 'PENDING').map(r => `
-                                    <div class="bg-slate-950 p-3 rounded border border-slate-800 text-xs space-y-1">
-                                        <p class="break-all"><strong class="text-white">Usuario:</strong> ${r.userEmail}</p>                                         <p><strong class="text-cyan-400">Monto:</strong> $${r.amount} ARS</p>
-                                        <p class="break-all"><strong class="text-slate-400">Comprobante:</strong> ${r.proofUrl}</p>
-                                        <button onclick="approveRecharge('${r.id}', '${r.userEmail}',${r.amount})" class="w-full bg-emerald-500 text-slate-950 font-bold p-1.5 rounded text-[11px] mt-1">
-                                            Aprobar Carga
-                                        </button>
+                                    <div class="bg-slate-950 p-3 rounded border border-slate-800 text-xs space-y-2">
+                                        <div class="space-y-1">
+                                            <p class="break-all"><strong class="text-white">Usuario:</strong> ${r.userEmail}</p>                                             <p><strong class="text-cyan-400">Monto:</strong> $${r.amount} ARS</p>
+                                            <p class="break-all"><strong class="text-slate-400">Comprobante:</strong> ${r.proofUrl}</p>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-2 pt-1">
+                                            <button onclick="approveRecharge('${r.id}', '${r.userEmail}',${r.amount})" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black p-2 rounded text-[11px] uppercase">
+                                                Aprobar
+                                            </button>
+                                            <button onclick="rejectRecharge('${r.id}')" class="bg-rose-500 hover:bg-rose-400 text-white font-black p-2 rounded text-[11px] uppercase">
+                                                Rechazar
+                                            </button>
+                                        </div>
                                     </div>
                                 `).join('')}
                                 ${rechargesList.filter(r => r.status === 'PENDING').length === 0 ? '<p class="text-xs text-slate-500">Sin cargas pendientes.</p>' : ''}
@@ -984,6 +991,11 @@
                 await db.collection('recharges').doc(id).update({ status: 'APPROVED' });
                 alert('Carga aprobada con éxito');
             }
+        }
+
+        async function rejectRecharge(id) {
+            await db.collection('recharges').doc(id).update({ status: 'REJECTED' });
+            alert('Carga rechazada');
         }
 
         async function approveWithdraw(id) {
