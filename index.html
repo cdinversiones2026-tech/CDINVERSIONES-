@@ -199,7 +199,7 @@
 
         const ADMIN_EMAIL = "cdinversiones2026@gmail.com";
         const ADMIN_PASS = "somos.9";
-        const MP_LINK = "https://link.mercadopago.com.ar/mis4princesas2027";
+        const BANK_CBU = "0000168300000028854988";
         const TELEGRAM_LINK = "https://t.me/+ywvf_RcC5LdmMDcx"; 
         const WITHDRAW_FEE = 0.15;
         const MIN_RECHARGE = 6500;
@@ -512,10 +512,17 @@
                 mainContent = `
                     <div class="bg-slate-900/90 p-5 rounded-xl border border-cyan-500/30 border-glow space-y-4">
                         <h3 class="text-sm font-bold text-cyan-400 uppercase tracking-wider">CARGAR SALDO</h3>
-                        <p class="text-xs text-slate-300">1. Realiza la transferencia en el siguiente enlace:</p>
-                        <a href="${MP_LINK}" target="_blank" rel="noopener noreferrer" class="block w-full text-center bg-blue-600 hover:bg-blue-500 text-white font-bold p-3 rounded-lg text-xs uppercase tracking-wider">
-                            Pagar con Mercado Pago
-                        </a>
+                        <p class="text-xs text-slate-300">1. Realiza la transferencia a la siguiente cuenta bancaria:</p>
+                        
+                        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+                            <div>
+                                <p class="text-[10px] text-slate-400 uppercase font-semibold">CBU Oficial para Transferir:</p>
+                                <p class="text-sm font-black text-cyan-400 tracking-wider font-mono mt-1 select-all break-all">${BANK_CBU}</p>
+                            </div>
+                            <button onclick="copyToClipboard('${BANK_CBU}', '¡CBU copiado al portapapeles!')" class="w-full bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 p-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all">
+                                📋 Copiar CBU
+                            </button>
+                        </div>
 
                         <div class="bg-cyan-950/60 p-4 rounded-xl border border-cyan-500/40 text-center space-y-2">
                             <p class="text-xs text-cyan-200 font-semibold">⚠ <strong>IMPORTANTE:</strong> Envía tu comprobante de pago a nuestro grupo para habilitar la carga.</p>
