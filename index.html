@@ -482,13 +482,16 @@
                 const activeRefs = currentUser.activeRefsCount || 0;
                 const refCode = currentUser.refCode || 'CD-XXXXX';
                 const siteUrlWithRef = window.location.origin + window.location.pathname + '?ref=' + refCode;
-                const fullShareMessage = `🚀 ¡Únete a CDINVERSIONES y empieza a generar rendimientos diarios!\n\n👉 Regístrate directamente con mi enlace: ${siteUrlWithRef}`;
+                const canClaim10Bonus = activeRefs >= 10 && !currentUser.refBonusClaimed && !currentUser.refBonusRequested;
 
                 mainContent = `
                     <div class="space-y-4">
                         <div class="bg-slate-900/90 p-5 rounded-xl border border-cyan-500/30 border-glow space-y-4">
                             <h3 class="text-sm font-bold text-cyan-400 uppercase tracking-wider">SISTEMA DE REFERIDOS</h3>
-                            <p class="text-xs text-slate-300">Invita amigos con tu enlace. Al registrarse mediante tu link, el código se **autocompletará automáticamente**. Al completar **10 referidos activos**, recibirás **$5,000 ARS** de bonificación.</p>
+                            <div class="text-xs text-slate-300 space-y-1">
+                                <p>• Recibes <strong class="text-emerald-400">$500 ARS instantáneos</strong> directos a tu saldo por cada referido que adquiera su primer plan.</p>
+                                <p>• Al completar <strong class="text-cyan-400">10 referidos activos</strong>, generas una solicitud para cobrar los otros <strong class="text-emerald-400">$5.000 ARS</strong> de bonificación.</p>
+                            </div>
                             
                             <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
                                 <div>
@@ -519,7 +522,23 @@
                                 <div class="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-slate-800">
                                     <div class="bg-gradient-to-r from-cyan-500 to-blue-500 h-full transition-all" style="width: ${Math.min(100, (activeRefs / 10) * 100)}%"></div>
                                 </div>
-                                <p class="text-[11px] text-slate-400 mt-2">Premio: <strong class="text-emerald-400">$5,000 ARS</strong> ${currentUser.refBonusClaimed ? '(¡RECLAMADO!)' : ''}</p>
+                                <div class="mt-3">
+                                    ${currentUser.refBonusClaimed ? `
+                                        <div class="p-2.5 bg-emerald-950/60 border border-emerald-500/40 rounded-lg text-center text-xs text-emerald-300 font-bold">
+                                            ✅ ¡Premio de $5.000 ARS Aprobado y Recibido!
+                                        </div>
+                                    ` : currentUser.refBonusRequested ? `
+                                        <div class="p-2.5 bg-amber-950/60 border border-amber-500/40 rounded-lg text-center text-xs text-amber-300 font-bold">
+                                            ⏳ Solicitud de $5.000 ARS enviada al Administrador.
+                                        </div>
+                                    ` : canClaim10Bonus ? `
+                                        <button onclick="request10RefBonus()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black p-3 rounded-lg text-xs uppercase tracking-wider shadow-lg">
+                                            🎁 Solicitar Cobro de $5.000 ARS (Meta 10 Referidos)
+                                        </button>
+                                    ` : `
+                                        <p class="text-[11px] text-slate-400 text-center">Completa 10 referidos activos para solicitar la bonificación especial de $5.000 ARS.</p>
+                                    `}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -654,16 +673,16 @@
                         </div>
 
                         <div class="bg-slate-900/90 p-4 rounded-xl border border-slate-800">
-                            <h4 class="font-bold text-white text-xs mb-3 uppercase">Solicitudes de Carga</h4>
+                            <h4 class="font-bold text-white text-xs mb-3 uppercase">Solicitudes de Carga / Bonos</h4>
                             <div class="space-y-2">
                                 ${rechargesList.filter(r => r.status === 'PENDING').map(r => `
                                     <div class="bg-slate-950 p-3 rounded border border-slate-800 text-xs space-y-2">
                                         <div class="space-y-1">
-                                            <p class="break-all"><strong class="text-white">Usuario:</strong> ${r.userEmail}</p>                                             <p><strong class="text-cyan-400">Monto:</strong> $${r.amount} ARS</p>
-                                            <p class="break-all"><strong class="text-slate-400">Comprobante:</strong> ${r.proofUrl}</p>
+                                            <p class="break-all"><strong class="text-white">Usuario:</strong> ${r.userEmail}</p>                                             <p><strong class="text-cyan-400">Monto / Concepto:</strong> $${r.amount} ARS</p>
+                                            <p class="break-all"><strong class="text-slate-400">Detalle:</strong> ${r.proofUrl}</p>
                                         </div>
                                         <div class="grid grid-cols-2 gap-2 pt-1">
-                                            <button onclick="approveRecharge('${r.id}', '${r.userEmail}',${r.amount})" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black p-2 rounded text-[11px] uppercase">
+                                            <button onclick="approveRecharge('${r.id}', '${r.userEmail}', ${r.amount}, '${r.isBonus || false}')" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black p-2 rounded text-[11px] uppercase">
                                                 Aprobar
                                             </button>
                                             <button onclick="rejectRecharge('${r.id}')" class="bg-rose-500 hover:bg-rose-400 text-white font-black p-2 rounded text-[11px] uppercase">
@@ -672,7 +691,7 @@
                                         </div>
                                     </div>
                                 `).join('')}
-                                ${rechargesList.filter(r => r.status === 'PENDING').length === 0 ? '<p class="text-xs text-slate-500">Sin cargas pendientes.</p>' : ''}
+                                ${rechargesList.filter(r => r.status === 'PENDING').length === 0 ? '<p class="text-xs text-slate-500">Sin solicitudes pendientes.</p>' : ''}
                             </div>
                         </div>
 
@@ -825,7 +844,8 @@
                     refCode: myRefCode,
                     referredBy: refCodeEntered || null,
                     activeRefsCount: 0,
-                    refBonusClaimed: false
+                    refBonusClaimed: false,
+                    refBonusRequested: false
                 };
 
                 await userRef.set(newUser);
@@ -918,27 +938,44 @@
                 activePlans: activePlans
             });
 
+            // Lógica de Referidos: Recompensa Instantánea de $500 ARS por referido activo
             if (isFirstPurchase && currentUser.referredBy) {
                 const referrerDoc = usersList.find(u => u.refCode === currentUser.referredBy);
                 if (referrerDoc) {
                     const newActiveCount = (referrerDoc.activeRefsCount || 0) + 1;
-                    let newRefBalance = referrerDoc.refBalance || 0;
-                    let bonusClaimed = referrerDoc.refBonusClaimed || false;
-
-                    if (newActiveCount >= 10 && !bonusClaimed) {
-                        newRefBalance += 5000;
-                        bonusClaimed = true;
-                    }
+                    const newBalance = (referrerDoc.balance || 0) + 500;
+                    const newRefBalance = (referrerDoc.refBalance || 0) + 500;
 
                     await db.collection('users').doc(referrerDoc.email).update({
                         activeRefsCount: newActiveCount,
-                        refBalance: newRefBalance,
-                        refBonusClaimed: bonusClaimed
+                        balance: newBalance,
+                        refBalance: newRefBalance
                     });
                 }
             }
 
             alert(`¡Plan ${product.name} adquirido con éxito!`);
+        }
+
+        async function request10RefBonus() {
+            if ((currentUser.activeRefsCount || 0) < 10) {
+                return alert("Necesitas tener 10 referidos activos para solicitar esta bonificación.");
+            }
+
+            await db.collection('recharges').add({
+                userEmail: currentUser.email,
+                amount: 5000,
+                proofUrl: "Bono Especial 10 Referidos Activos",
+                status: 'PENDING',
+                isBonus: true,
+                date: new Date().toLocaleString()
+            });
+
+            await db.collection('users').doc(currentUser.email).update({
+                refBonusRequested: true
+            });
+
+            alert("Solicitud de $5.000 ARS enviada al Administrador. Recibirás tu crédito en breve.");
         }
 
         async function handleRechargeSubmit(e) {
@@ -959,6 +996,7 @@
                 amount,
                 proofUrl: proof,
                 status: 'PENDING',
+                isBonus: false,
                 date: new Date().toLocaleString()
             });
 
@@ -1037,19 +1075,29 @@
             }
         }
 
-        async function approveRecharge(id, email, amount) {
+        async function approveRecharge(id, email, amount, isBonus) {
             const userRef = db.collection('users').doc(email);
             const doc = await userRef.get();
             if (doc.exists) {
-                await userRef.update({ balance: (doc.data().balance || 0) + amount });
+                const isBonusFlag = (isBonus === 'true' || isBonus === true);
+                const updates = { 
+                    balance: (doc.data().balance || 0) + amount 
+                };
+
+                if (isBonusFlag) {
+                    updates.refBonusClaimed = true;
+                    updates.refBonusRequested = false;
+                }
+
+                await userRef.update(updates);
                 await db.collection('recharges').doc(id).update({ status: 'APPROVED' });
-                alert('Carga aprobada con éxito');
+                alert('Aprobación completada con éxito');
             }
         }
 
         async function rejectRecharge(id) {
             await db.collection('recharges').doc(id).update({ status: 'REJECTED' });
-            alert('Carga rechazada');
+            alert('Solicitud rechazada');
         }
 
         async function approveWithdraw(id) {
