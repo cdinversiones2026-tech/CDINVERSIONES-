@@ -235,6 +235,7 @@
         let rechargesList = [];
         let withdrawsList = [];
         let timerInterval = null;
+        let isSyncingRefs = false;
 
         function getUrlRefCode() {
             const urlParams = new URLSearchParams(window.location.search);
@@ -314,6 +315,56 @@
                 }).catch(() => {});
             } else {
                 copyToClipboard(shareText, '¡Enlace de referido copiado al portapapeles!');
+            }
+        }
+
+        // Función para Sincronizar Saldos Retroactivos por Referidos Activos
+        async function syncExistingReferrals() {
+            if (isSyncingRefs || usersList.length === 0) return;
+            isSyncingRefs = true;
+
+            try {
+                const referrerMap = {};
+
+                // Map de referidores y conteo de sus referidos activos
+                usersList.forEach(user => {
+                    const hasPurchased = Object.keys(user.purchases || {}).length > 0;
+                    if (hasPurchased && user.referredBy) {
+                        referrerMap[user.referredBy] = (referrerMap[user.referredBy] || []);
+                        referrerMap[user.referredBy].push(user.email);
+                    }
+                });
+
+                for (const user of usersList) {
+                    if (!user.refCode) continue;
+                    const activeRefsList = referrerMap[user.refCode] || [];
+                    const activeCount = activeRefsList.length;
+                    
+                    const creditedList = user.creditedRefEmails || [];
+                    const pendingToCredit = activeRefsList.filter(email => !creditedList.includes(email));
+
+                    if (pendingToCredit.length > 0) {
+                        const bonusToAdd = pendingToCredit.length * 500;
+                        const newBalance = (user.balance || 0) + bonusToAdd;
+                        const newRefBalance = (user.refBalance || 0) + bonusToAdd;
+                        const newCreditedEmails = [...creditedList, ...pendingToCredit];
+
+                        await db.collection('users').doc(user.email).update({
+                            balance: newBalance,
+                            refBalance: newRefBalance,
+                            activeRefsCount: activeCount,
+                            creditedRefEmails: newCreditedEmails
+                        });
+                    } else if ((user.activeRefsCount || 0) !== activeCount) {
+                        await db.collection('users').doc(user.email).update({
+                            activeRefsCount: activeCount
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error("Error sincronizando referidos:", err);
+            } finally {
+                isSyncingRefs = false;
             }
         }
 
@@ -636,6 +687,7 @@
                                         ? u.activePlans.map(p => p.name).join(', ') 
                                         : 'Sin planes activos';
                                     const userBalance = u.balance || 0;
+                                    const refBal = u.refBalance || 0;
                                     const normEmail = normalizeEmail(u.email);
                                     const isDuplicate = emailCounts[normEmail] > 1;
 
@@ -650,7 +702,10 @@
                                             <div class="break-all space-y-1">
                                                 <p class="font-bold ${isDuplicate ? 'text-rose-400' : 'text-white'} text-xs">${u.email}</p>
                                                 <p class="text-[11px] text-emerald-400 font-semibold">
-                                                    📦 <strong>Planes:</strong> ${plansText}                                                 </p>                                                 <p class="text-[11px] text-cyan-300 font-semibold">                                                     💵 <strong>Saldo Actual:</strong> $${userBalance.toLocaleString()} ARS
+                                                    📦 <strong>Planes:</strong> ${plansText}
+                                                </p>
+                                                <p class="text-[11px] text-cyan-300 font-semibold">
+                                                    💵 <strong>Saldo Actual:</strong> $${userBalance.toLocaleString()} ARS                                                 </p>                                                 <p class="text-[11px] text-teal-400 font-semibold">                                                     👥 <strong>Saldo Por Referidos:</strong> $${refBal.toLocaleString()} ARS
                                                 </p>
                                                 <p class="text-[10px] text-slate-400">
                                                     Código: <span class="text-cyan-400 font-mono">${u.refCode || 'N/A'}</span> | Ref. Activos: <span class="text-emerald-400 font-bold">${u.activeRefsCount || 0}</span>
@@ -741,7 +796,7 @@
                             <p class="text-[10px] font-bold uppercase tracking-wider text-cyan-300">SALDO DISPONIBLE</p>
                             <h1 class="text-3xl font-black my-1 text-white">$${(currentUser.balance || 0).toLocaleString()} ARS</h1>
                             <div class="flex justify-between items-center mt-3 pt-3 border-t border-cyan-500/20 text-[11px]">
-                                <span class="text-slate-300">Saldo Referidos: $${(currentUser.refBalance || 0).toLocaleString()} ARS</span>
+                                <span class="text-slate-300">Saldo por Referidos: <strong class="text-emerald-400">$${(currentUser.refBalance || 0).toLocaleString()} ARS</strong></span>
                                 <span class="bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-full font-bold">Nivel VIP ${currentUser.level || 1}</span>
                             </div>
                         </div>
@@ -844,6 +899,7 @@
                     refCode: myRefCode,
                     referredBy: refCodeEntered || null,
                     activeRefsCount: 0,
+                    creditedRefEmails: [],
                     refBonusClaimed: false,
                     refBonusRequested: false
                 };
@@ -868,6 +924,7 @@
                     const match = usersList.find(u => u.email === currentUser.email);
                     if (match) currentUser = match;
                 }
+                syncExistingReferrals();
                 render();
             });
 
@@ -942,15 +999,20 @@
             if (isFirstPurchase && currentUser.referredBy) {
                 const referrerDoc = usersList.find(u => u.refCode === currentUser.referredBy);
                 if (referrerDoc) {
-                    const newActiveCount = (referrerDoc.activeRefsCount || 0) + 1;
-                    const newBalance = (referrerDoc.balance || 0) + 500;
-                    const newRefBalance = (referrerDoc.refBalance || 0) + 500;
+                    const creditedList = referrerDoc.creditedRefEmails || [];
+                    if (!creditedList.includes(currentUser.email)) {
+                        const newActiveCount = (referrerDoc.activeRefsCount || 0) + 1;
+                        const newBalance = (referrerDoc.balance || 0) + 500;
+                        const newRefBalance = (referrerDoc.refBalance || 0) + 500;
+                        const updatedCreditedList = [...creditedList, currentUser.email];
 
-                    await db.collection('users').doc(referrerDoc.email).update({
-                        activeRefsCount: newActiveCount,
-                        balance: newBalance,
-                        refBalance: newRefBalance
-                    });
+                        await db.collection('users').doc(referrerDoc.email).update({
+                            activeRefsCount: newActiveCount,
+                            balance: newBalance,
+                            refBalance: newRefBalance,
+                            creditedRefEmails: updatedCreditedList
+                        });
+                    }
                 }
             }
 
@@ -1087,6 +1149,7 @@
                 if (isBonusFlag) {
                     updates.refBonusClaimed = true;
                     updates.refBonusRequested = false;
+                    updates.refBalance = (doc.data().refBalance || 0) + amount;
                 }
 
                 await userRef.update(updates);
