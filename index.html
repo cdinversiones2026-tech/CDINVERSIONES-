@@ -199,7 +199,7 @@
 
         const ADMIN_EMAIL = "cdinversiones2026@gmail.com";
         const ADMIN_PASS = "somos.9";
-        const BANK_CBU = "0000168300000028854988";
+        const BANK_CBU = "0000313900000000234610";
         const TELEGRAM_LINK = "https://t.me/+ywvf_RcC5LdmMDcx"; 
         const WITHDRAW_FEE = 0.15;
         const MIN_RECHARGE = 6500;
@@ -319,7 +319,6 @@
             }
         }
 
-        // Función para Sincronizar Saldos Retroactivos por Referidos Activos
         async function syncExistingReferrals() {
             if (isSyncingRefs || usersList.length === 0) return;
             isSyncingRefs = true;
@@ -368,7 +367,6 @@
             }
         }
 
-        // Función para Acreditar Automáticamente Planes Finalizados
         async function checkCompletedPlans() {
             if (isProcessingYields || !currentUser || !currentUser.activePlans || currentUser.activePlans.length === 0) return;
 
@@ -890,7 +888,6 @@
             timerInterval = setInterval(() => {
                 const now = Date.now();
 
-                // Verificación constante de planes finalizados
                 checkCompletedPlans();
 
                 const checkInEl = document.getElementById('checkin-timer');
