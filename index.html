@@ -318,7 +318,6 @@
             }
         }
 
-        // Función para Sincronizar Saldos Retroactivos por Referidos Activos
         async function syncExistingReferrals() {
             if (isSyncingRefs || usersList.length === 0) return;
             isSyncingRefs = true;
@@ -326,7 +325,6 @@
             try {
                 const referrerMap = {};
 
-                // Map de referidores y conteo de sus referidos activos
                 usersList.forEach(user => {
                     const hasPurchased = Object.keys(user.purchases || {}).length > 0;
                     if (hasPurchased && user.referredBy) {
@@ -634,6 +632,13 @@
                     </div>
                 `;
             } else if (currentView === 'withdraws') {
+                const now = Date.now();
+                const lastWithdraw = currentUser.lastWithdrawTimestamp || 0;
+                const timePassed = now - lastWithdraw;
+                const cooldownMs = 48 * 60 * 60 * 1000;
+                const canWithdraw = timePassed >= cooldownMs;
+                const timeRemainingMs = cooldownMs - timePassed;
+
                 mainContent = `
                     <div class="bg-slate-900/90 p-5 rounded-xl border border-cyan-500/30 border-glow space-y-4">
                         <h3 class="text-sm font-bold text-cyan-400 uppercase tracking-wider">SOLICITAR RETIRO</h3>
@@ -661,9 +666,15 @@
                                 <input type="text" id="cbuInput" required placeholder="Ej: alias.mp o CBU" class="w-full bg-slate-950 text-white p-3 rounded-lg text-xs border border-slate-700 focus:outline-none focus:border-cyan-400">
                             </div>
 
-                            <button onclick="solicitarRetiro()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-black p-3 rounded-lg text-xs uppercase tracking-wider flex items-center justify-center gap-2">
-                                💬 Solicitar Retiro por Telegram
-                            </button>
+                            ${canWithdraw ? `
+                                <button id="btnSolicitarRetiro" onclick="solicitarRetiro()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-black p-3 rounded-lg text-xs uppercase tracking-wider flex items-center justify-center gap-2">
+                                    💬 Solicitar Retiro por Telegram
+                                </button>
+                            ` : `
+                                <button id="btnSolicitarRetiro" disabled class="w-full bg-slate-800 text-slate-500 border border-slate-700 font-bold p-3 rounded-lg text-xs uppercase tracking-wider cursor-not-allowed flex items-center justify-center gap-2">
+                                    ⏱️ Disponible en <span id="withdraw-cooldown-timer">${formatTimeRemaining(timeRemainingMs)}</span>
+                                </button>
+                            `}
                         </div>
                     </div>
                 `;
@@ -852,6 +863,18 @@
                     }
                 }
 
+                const withdrawTimerEl = document.getElementById('withdraw-cooldown-timer');
+                if (withdrawTimerEl && currentUser) {
+                    const lastWithdraw = currentUser.lastWithdrawTimestamp || 0;
+                    const cooldownMs = 48 * 60 * 60 * 1000;
+                    const rem = cooldownMs - (now - lastWithdraw);
+                    if (rem <= 0) {
+                        render();
+                    } else {
+                        withdrawTimerEl.innerText = formatTimeRemaining(rem);
+                    }
+                }
+
                 const planEls = document.querySelectorAll('.plan-timer');
                 planEls.forEach(el => {
                     const end = parseInt(el.getAttribute('data-end'));
@@ -995,7 +1018,6 @@
                 activePlans: activePlans
             });
 
-            // Lógica de Referidos: Recompensa Instantánea de $500 ARS por referido activo
             if (isFirstPurchase && currentUser.referredBy) {
                 const referrerDoc = usersList.find(u => u.refCode === currentUser.referredBy);
                 if (referrerDoc) {
@@ -1073,11 +1095,10 @@
             const cbu = cbuInput ? cbuInput.value.trim() : "";
             const now = Date.now();
             const lastWithdraw = currentUser.lastWithdrawTimestamp || 0;
-            const hoursSinceLastWithdraw = (now - lastWithdraw) / (1000 * 60 * 60);
+            const cooldownMs = 48 * 60 * 60 * 1000;
 
-            if (hoursSinceLastWithdraw < 48) {
-                const hoursLeft = Math.ceil(48 - hoursSinceLastWithdraw);
-                return alert(`Solo puedes realizar un retiro cada 48 horas. Vuelve a intentarlo en aproximadamente ${hoursLeft} hs.`);
+            if ((now - lastWithdraw) < cooldownMs) {
+                return alert('Debes esperar 48 horas exactas entre cada retiro.');
             }
 
             if (isNaN(monto) || monto < MIN_WITHDRAW || monto > MAX_WITHDRAW) {
