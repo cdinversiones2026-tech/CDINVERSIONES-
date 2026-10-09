@@ -236,6 +236,7 @@
         let withdrawsList = [];
         let timerInterval = null;
         let isSyncingRefs = false;
+        let isProcessingYields = false;
 
         function getUrlRefCode() {
             const urlParams = new URLSearchParams(window.location.search);
@@ -318,6 +319,7 @@
             }
         }
 
+        // Función para Sincronizar Saldos Retroactivos por Referidos Activos
         async function syncExistingReferrals() {
             if (isSyncingRefs || usersList.length === 0) return;
             isSyncingRefs = true;
@@ -363,6 +365,42 @@
                 console.error("Error sincronizando referidos:", err);
             } finally {
                 isSyncingRefs = false;
+            }
+        }
+
+        // Función para Acreditar Automáticamente Planes Finalizados
+        async function checkCompletedPlans() {
+            if (isProcessingYields || !currentUser || !currentUser.activePlans || currentUser.activePlans.length === 0) return;
+
+            const now = Date.now();
+            let updatedPlans = [];
+            let totalYieldToCredit = 0;
+            let hasCompletedPlans = false;
+
+            currentUser.activePlans.forEach(plan => {
+                const planEnd = plan.boughtAt + (plan.days * 24 * 60 * 60 * 1000);
+                if (now >= planEnd) {
+                    totalYieldToCredit += plan.total;
+                    hasCompletedPlans = true;
+                } else {
+                    updatedPlans.push(plan);
+                }
+            });
+
+            if (hasCompletedPlans) {
+                isProcessingYields = true;
+                try {
+                    const newBalance = (currentUser.balance || 0) + totalYieldToCredit;
+                    await db.collection('users').doc(currentUser.email).update({
+                        balance: newBalance,
+                        activePlans: updatedPlans
+                    });
+                    alert(`¡Felicidades! Tu plan ha finalizado. Se han acreditado $${totalYieldToCredit.toLocaleString()} ARS automáticamente a tu saldo.`);
+                } catch (err) {
+                    console.error("Error acreditando plan completado:", err);
+                } finally {
+                    isProcessingYields = false;
+                }
             }
         }
 
@@ -852,6 +890,9 @@
             timerInterval = setInterval(() => {
                 const now = Date.now();
 
+                // Verificación constante de planes finalizados
+                checkCompletedPlans();
+
                 const checkInEl = document.getElementById('checkin-timer');
                 if (checkInEl && currentUser) {
                     const lastTime = currentUser.lastCheckInTimestamp || 0;
@@ -948,6 +989,7 @@
                     if (match) currentUser = match;
                 }
                 syncExistingReferrals();
+                checkCompletedPlans();
                 render();
             });
 
