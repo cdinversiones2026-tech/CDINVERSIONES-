@@ -164,7 +164,7 @@
             <span class="cd-icon">📅</span>
             <div>
               <strong>Días y horarios de retiros</strong>
-              <span>mar a Vie de 10:00 a 18:00 hs</span>
+              <span>Lun a Vie de 10:00 a 18:00 hs</span>
             </div>
           </li>
           <li>
@@ -199,8 +199,8 @@
 
         const ADMIN_EMAIL = "cdinversiones2026@gmail.com";
         const ADMIN_PASS = "somos.9";
-        const BANK_CBU = "0000013000032204321913";
-        const TELEGRAM_LINK = "https://t.me/+qniSEJG2aDM2ZWQ5"; 
+        const BANK_CBU = "0000313900000000234610";
+        const TELEGRAM_LINK = "https://t.me/+ywvf_RcC5LdmMDcx"; 
         const WITHDRAW_FEE = 0.15;
         const MIN_RECHARGE = 6500;
         const MIN_WITHDRAW = 1000;
@@ -691,7 +691,7 @@
                                 <ul class="list-disc list-inside space-y-1 text-[11px]">
                                     <li>Mínimo $1.000 ARS | Máximo $50.000 ARS</li>
                                     <li>1 retiro cada 48 hs.</li>
-                                    <li><strong>Horario de retiros:</strong> martes a Viernes de 10:00 a 18:00 hs.</li>
+                                    <li><strong>Horario de retiros:</strong> Lunes a Viernes de 10:00 a 18:00 hs.</li>
                                     <li>Comisión de gestión: <strong>15%</strong>.</li>
                                 </ul>
                                 <p id="detalle-calculo" class="text-xs text-slate-300 font-mono pt-2 border-t border-amber-500/20">Monto neto a recibir: <strong class="text-emerald-400">$0 ARS</strong></p>
@@ -804,13 +804,20 @@
                                     const fee = w.amount * WITHDRAW_FEE;
                                     const net = w.amount - fee;
                                     return `
-                                        <div class="bg-slate-950 p-3 rounded border border-slate-800 text-xs space-y-1">
-                                            <p class="break-all"><strong class="text-white">Usuario:</strong> ${w.userEmail}</p>                                             <p><strong class="text-cyan-400">Bruto Solicitado:</strong> $${w.amount} ARS</p>
-                                            <p><strong class="text-amber-400">Comisión (15%):</strong> $${fee} ARS</p>                                             <p><strong class="text-emerald-400">A Transferir (Neto):</strong> $${net} ARS</p>
-                                            <p><strong class="text-slate-400">CBU/Alias:</strong> ${w.cbu}</p>
-                                            <button onclick="approveWithdraw('${w.id}')" class="w-full bg-blue-500 text-slate-950 font-bold p-1.5 rounded text-[11px] mt-1">
-                                                Marcar Completado
-                                            </button>
+                                        <div class="bg-slate-950 p-3 rounded border border-slate-800 text-xs space-y-2">
+                                            <div class="space-y-1">
+                                                <p class="break-all"><strong class="text-white">Usuario:</strong> ${w.userEmail}</p>                                                 <p><strong class="text-cyan-400">Bruto Solicitado:</strong> $${w.amount} ARS</p>
+                                                <p><strong class="text-amber-400">Comisión (15%):</strong> $${fee} ARS</p>                                                 <p><strong class="text-emerald-400">A Transferir (Neto):</strong> $${net} ARS</p>
+                                                <p><strong class="text-slate-400">CBU/Alias:</strong> ${w.cbu}</p>
+                                            </div>
+                                            <div class="grid grid-cols-2 gap-2 pt-1">
+                                                <button onclick="approveWithdraw('${w.id}')" class="bg-blue-500 hover:bg-blue-400 text-slate-950 font-bold p-2 rounded text-[11px] uppercase">
+                                                    Marcar Completado
+                                                </button>
+                                                <button onclick="rejectWithdraw('${w.id}', '${w.userEmail}',${w.amount})" class="bg-rose-600 hover:bg-rose-500 text-white font-bold p-2 rounded text-[11px] uppercase">
+                                                    Rechazar y Devolver
+                                                </button>
+                                            </div>
                                         </div>
                                     `;
                                 }).join('')}
@@ -1226,6 +1233,17 @@
         async function approveWithdraw(id) {
             await db.collection('withdraws').doc(id).update({ status: 'APPROVED' });
             alert('Retiro completado');
+        }
+
+        async function rejectWithdraw(id, userEmail, amount) {
+            const userRef = db.collection('users').doc(userEmail);
+            const doc = await userRef.get();
+            if (doc.exists) {
+                const currentBalance = doc.data().balance || 0;
+                await userRef.update({ balance: currentBalance + amount });
+                await db.collection('withdraws').doc(id).update({ status: 'REJECTED' });
+                alert(`Retiro rechazado. Se han devuelto $${amount.toLocaleString()} ARS al saldo del usuario.`);
+            }
         }
 
         render();
