@@ -206,6 +206,9 @@
         const MIN_WITHDRAW = 1000;
         const MAX_WITHDRAW = 50000;
 
+        // Fecha/Hora de inicio del evento global de 24 horas (se calcula automáticamente si no existe)
+        const EVENT_DURATION = 24 * 60 * 60 * 1000; // 24hs
+
         const LOGO_SVG = `
             <div class="w-full h-full bg-gradient-to-br from-blue-900 via-slate-950 to-cyan-950 flex items-center justify-center p-2 rounded-xl border border-cyan-400/40">
                 <svg class="w-full h-full text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -238,6 +241,7 @@
         let timerInterval = null;
         let isSyncingRefs = false;
         let isProcessingYields = false;
+        let globalEventStartTime = null;
 
         function getUrlRefCode() {
             const urlParams = new URLSearchParams(window.location.search);
@@ -320,14 +324,32 @@
             }
         }
 
+        async function initGlobalEventTime() {
+            try {
+                const eventDocRef = db.collection('settings').doc('event24h');
+                const doc = await eventDocRef.get();
+
+                if (doc.exists) {
+                    globalEventStartTime = doc.data().startTime;
+                } else {
+                    const now = Date.now();
+                    await eventDocRef.set({ startTime: now });
+                    globalEventStartTime = now;
+                }
+            } catch (err) {
+                if (!globalEventStartTime) globalEventStartTime = Date.now();
+            }
+        }
+
         async function syncExistingReferrals() {
-            if (isSyncingRefs || usersList.length === 0) return;
+            if (isSyncingRefs || usersList.length === 0 || !globalEventStartTime) return;
             isSyncingRefs = true;
 
             try {
                 const now = Date.now();
-                const referrerMap = {};
+                const isGlobalEventActive = (now - globalEventStartTime) <= EVENT_DURATION;
 
+                const referrerMap = {};
                 usersList.forEach(user => {
                     if (user.referredBy) {
                         referrerMap[user.referredBy] = (referrerMap[user.referredBy] || []);
@@ -339,11 +361,9 @@
                     if (!user.refCode) continue;
                     const myRefUsers = referrerMap[user.refCode] || [];
                     const creditedList = user.creditedRefEmails || [];
-                    const userCreatedAt = user.createdAt || now;
-                    const isUserInFlashWindow = (now - userCreatedAt) <= (24 * 60 * 60 * 1000);
 
-                    // Si ya terminaron las 24hs del usuario, procesar automáticamente acreditación instantánea de $500 para nuevos registros
-                    if (!isUserInFlashWindow) {
+                    // Si la promoción de 24hs ya terminó globalmente, acreditar $500 por cada referido nuevo no acreditado previamente
+                    if (!isGlobalEventActive) {
                         const pendingToCredit500 = myRefUsers.filter(u => !creditedList.includes(u.email));
                         if (pendingToCredit500.length > 0) {
                             const newEmailsToCredit = pendingToCredit500.map(u => u.email);
@@ -457,8 +477,8 @@
 
             let mainContent = '';
             const now = Date.now();
-            const userCreatedAt = currentUser.createdAt || now;
-            const flashTimeLeft = (24 * 60 * 60 * 1000) - (now - userCreatedAt);
+            const eventStartTime = globalEventStartTime || now;
+            const flashTimeLeft = EVENT_DURATION - (now - eventStartTime);
             const isFlashAvailable = flashTimeLeft > 0;
 
             if (currentView === 'home') {
@@ -593,19 +613,19 @@
                             <h3 class="text-sm font-bold text-cyan-400 uppercase tracking-wider">SISTEMA DE REFERIDOS</h3>
                             
                             <div class="bg-amber-950/40 p-3.5 rounded-xl border border-amber-500/40 text-xs text-amber-200 space-y-2">
-                                <p class="font-bold flex items-center gap-1">⚡ <strong>BONO ESPECIAL (PRIMERAS 24HS):</strong></p>
+                                <p class="font-bold flex items-center gap-1">⚡ <strong>EVENTO ESPECIAL DE REFERIDOS (24HS):</strong></p>
                                 <p class="text-[11px] text-slate-300">
-                                    • Si tu referido se registra y <strong>realiza una carga de saldo</strong> dentro de tus primeras 24hs, ganas <strong class="text-amber-400">$2.000 ARS</strong>.
+                                    • Durante estas 24hs, ganas <strong class="text-amber-400">$2.000 ARS</strong> por cada referido que se registre con tu código y <strong>cargue dinero</strong>. Si no carga, no se otorga el bono.
                                 </p>
                                 <div class="text-[11px] text-amber-300 font-mono font-bold pt-1 border-t border-amber-500/20">
-                                    ⏱️ Tiempo restante bono 24hs: <span id="ref-flash-timer">${isFlashAvailable ? formatTimeRemaining(flashTimeLeft) : 'Finalizado ($500 Instantáneo Activo)'}</span>
+                                    ⏱️ Tiempo restante del evento: <span id="ref-flash-timer">${isFlashAvailable ? formatTimeRemaining(flashTimeLeft) : 'Finalizado ($500 Instantáneo Activo)'}</span>
                                 </div>
                             </div>
 
                             <div class="text-xs text-slate-300 space-y-1">
-                                <p>• <strong>Bono Estándar:</strong> Al terminar las 24hs, ganas <strong class="text-emerald-400">$500 ARS instantáneos</strong> por cada nuevo usuario registrado con tu código (sin necesidad de que cargue dinero).</p>
+                                <p>• <strong>Esquema Estándar:</strong> Al finalizar las 24hs del evento, ganas <strong class="text-emerald-400">$500 ARS instantáneos</strong> por cada nuevo usuario registrado con tu código (sin necesidad de que cargue dinero).</p>
                                 <p>• <strong>Meta Especial:</strong> Al acumular <strong class="text-cyan-400">10 referidos</strong>, solicitas <strong class="text-emerald-400">$5.000 ARS</strong> adicionales.</p>
-                                <p>• ⚠️ <strong>REQUISITO DE RETIRO:</strong> Para retirar tus ganancias acumuladas por referidos debes poseer al menos <strong>1 plan activo</strong>.</p>
+                                <p>• ⚠️ <strong>REQUISITO DE RETIRO:</strong> Para poder retirar tus ganancias ganadas por referidos debes poseer al menos <strong>1 plan activo</strong>.</p>
                             </div>
                             
                             <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
@@ -956,10 +976,9 @@
                     }
                 }
 
-                if (currentUser) {
-                    const userCreatedAt = currentUser.createdAt || now;
-                    const flashRem = (24 * 60 * 60 * 1000) - (now - userCreatedAt);
-                    
+                if (globalEventStartTime) {
+                    const flashRem = EVENT_DURATION - (now - globalEventStartTime);
+
                     const flashPlanEl = document.getElementById('flash-plan-timer');
                     if (flashPlanEl) {
                         if (flashRem <= 0) render();
@@ -994,6 +1013,7 @@
             if (email === ADMIN_EMAIL && pass === ADMIN_PASS) {
                 currentUser = { email: ADMIN_EMAIL, balance: 0, refBalance: 0, isAdmin: true, purchases: {} };
                 currentView = 'admin';
+                await initGlobalEventTime();
                 listenToData();
                 render();
                 return;
@@ -1001,6 +1021,8 @@
 
             const userRef = db.collection('users').doc(email);
             const doc = await userRef.get();
+
+            await initGlobalEventTime();
 
             if (isRegisterMode) {
                 if (doc.exists) return alert('El usuario ya existe');
@@ -1030,14 +1052,12 @@
                 await userRef.set(newUser);
                 currentUser = newUser;
 
-                // Si se registra con código de referente y las 24hs del referente ya pasaron, le da $500 instantáneos
+                // Si se registra con código de referente y las 24hs del evento global YA FINALIZARON, acredita $500 instantáneos al referente
                 if (refCodeEntered) {
-                    const referrerDoc = usersList.find(u => u.refCode === refCodeEntered);
-                    if (referrerDoc) {
-                        const referrerCreatedAt = referrerDoc.createdAt || now;
-                        const isReferrerInFlashWindow = (now - referrerCreatedAt) <= (24 * 60 * 60 * 1000);
-
-                        if (!isReferrerInFlashWindow) {
+                    const isGlobalEventActive = (now - globalEventStartTime) <= EVENT_DURATION;
+                    if (!isGlobalEventActive) {
+                        const referrerDoc = usersList.find(u => u.refCode === refCodeEntered);
+                        if (referrerDoc) {
                             const creditedList = referrerDoc.creditedRefEmails || [];
                             if (!creditedList.includes(email)) {
                                 const newActiveCount = (referrerDoc.activeRefsCount || 0) + 1;
@@ -1125,9 +1145,8 @@
 
             if (product.isFlash) {
                 const now = Date.now();
-                const userCreatedAt = currentUser.createdAt || now;
-                if ((now - userCreatedAt) > (24 * 60 * 60 * 1000)) {
-                    return alert('El Paquete Flash de 24hs ha expirado para tu cuenta.');
+                if ((now - globalEventStartTime) > EVENT_DURATION) {
+                    return alert('El Paquete Flash de 24hs ha expirado.');
                 }
             }
 
@@ -1296,15 +1315,14 @@
                 await userRef.update(updates);
                 await db.collection('recharges').doc(id).update({ status: 'APPROVED' });
 
-                // Acreditación del bono de $2.000 por carga dentro de las primeras 24hs del referente
+                // Si el evento de 24hs está ACTIVO y el usuario se registró con código de referente, otorga $2.000 por su primera carga
                 if (!isBonusFlag && userData.referredBy) {
-                    const referrerDoc = usersList.find(u => u.refCode === userData.referredBy);
-                    if (referrerDoc) {
-                        const now = Date.now();
-                        const referrerCreatedAt = referrerDoc.createdAt || now;
-                        const isWithin24hs = (now - referrerCreatedAt) <= (24 * 60 * 60 * 1000);
+                    const now = Date.now();
+                    const isGlobalEventActive = (now - globalEventStartTime) <= EVENT_DURATION;
 
-                        if (isWithin24hs) {
+                    if (isGlobalEventActive) {
+                        const referrerDoc = usersList.find(u => u.refCode === userData.referredBy);
+                        if (referrerDoc) {
                             const creditedList = referrerDoc.creditedRefEmails || [];
                             if (!creditedList.includes(email)) {
                                 const newActiveCount = (referrerDoc.activeRefsCount || 0) + 1;
