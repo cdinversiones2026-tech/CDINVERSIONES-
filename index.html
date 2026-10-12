@@ -170,8 +170,8 @@
           <li>
             <span class="cd-icon">🔒</span>
             <div>
-              <strong>Máximo de retiro</strong>
-              <span>$50.000 ARS</span>
+              <strong>Requisito para retirar referidos</strong>
+              <span>Tener 1 plan activo</span>
             </div>
           </li>
         </ul>
@@ -215,6 +215,7 @@
         `;
 
         const PRODUCTS = [
+            { id: 99, name: "⚡ Paquete Flash 24hs", price: 7000, days: 3, dailyYield: 4800, total: 14400, limit: 1, isFlash: true },
             { id: 1, name: "Plan Celular 5.000 ARS", price: 5000, days: 3, dailyYield: 2583, total: 7750, limit: 1 },
             { id: 2, name: "Plan Celular 10.000 ARS", price: 10000, days: 6, dailyYield: 2583, total: 15500, limit: 1 },
             { id: 3, name: "Plan Celular 16.000 ARS", price: 16000, days: 8, dailyYield: 3100, total: 24800, limit: 1 },
@@ -324,40 +325,41 @@
             isSyncingRefs = true;
 
             try {
+                const now = Date.now();
                 const referrerMap = {};
 
                 usersList.forEach(user => {
-                    const hasPurchased = Object.keys(user.purchases || {}).length > 0;
-                    if (hasPurchased && user.referredBy) {
+                    if (user.referredBy) {
                         referrerMap[user.referredBy] = (referrerMap[user.referredBy] || []);
-                        referrerMap[user.referredBy].push(user.email);
+                        referrerMap[user.referredBy].push(user);
                     }
                 });
 
                 for (const user of usersList) {
                     if (!user.refCode) continue;
-                    const activeRefsList = referrerMap[user.refCode] || [];
-                    const activeCount = activeRefsList.length;
-                    
+                    const myRefUsers = referrerMap[user.refCode] || [];
                     const creditedList = user.creditedRefEmails || [];
-                    const pendingToCredit = activeRefsList.filter(email => !creditedList.includes(email));
+                    const userCreatedAt = user.createdAt || now;
+                    const isUserInFlashWindow = (now - userCreatedAt) <= (24 * 60 * 60 * 1000);
 
-                    if (pendingToCredit.length > 0) {
-                        const bonusToAdd = pendingToCredit.length * 500;
-                        const newBalance = (user.balance || 0) + bonusToAdd;
-                        const newRefBalance = (user.refBalance || 0) + bonusToAdd;
-                        const newCreditedEmails = [...creditedList, ...pendingToCredit];
+                    // Si ya terminaron las 24hs del usuario, procesar automáticamente acreditación instantánea de $500 para nuevos registros
+                    if (!isUserInFlashWindow) {
+                        const pendingToCredit500 = myRefUsers.filter(u => !creditedList.includes(u.email));
+                        if (pendingToCredit500.length > 0) {
+                            const newEmailsToCredit = pendingToCredit500.map(u => u.email);
+                            const bonusToAdd = pendingToCredit500.length * 500;
+                            const newBalance = (user.balance || 0) + bonusToAdd;
+                            const newRefBalance = (user.refBalance || 0) + bonusToAdd;
+                            const updatedCreditedList = [...creditedList, ...newEmailsToCredit];
+                            const newActiveCount = (user.activeRefsCount || 0) + pendingToCredit500.length;
 
-                        await db.collection('users').doc(user.email).update({
-                            balance: newBalance,
-                            refBalance: newRefBalance,
-                            activeRefsCount: activeCount,
-                            creditedRefEmails: newCreditedEmails
-                        });
-                    } else if ((user.activeRefsCount || 0) !== activeCount) {
-                        await db.collection('users').doc(user.email).update({
-                            activeRefsCount: activeCount
-                        });
+                            await db.collection('users').doc(user.email).update({
+                                balance: newBalance,
+                                refBalance: newRefBalance,
+                                activeRefsCount: newActiveCount,
+                                creditedRefEmails: updatedCreditedList
+                            });
+                        }
                     }
                 }
             } catch (err) {
@@ -454,9 +456,12 @@
             }
 
             let mainContent = '';
+            const now = Date.now();
+            const userCreatedAt = currentUser.createdAt || now;
+            const flashTimeLeft = (24 * 60 * 60 * 1000) - (now - userCreatedAt);
+            const isFlashAvailable = flashTimeLeft > 0;
 
             if (currentView === 'home') {
-                const now = Date.now();
                 const lastCheckInTime = currentUser.lastCheckInTimestamp || 0;
                 const checkInAvailable = (now - lastCheckInTime) >= (24 * 60 * 60 * 1000);
                 const checkInRemaining = (24 * 60 * 60 * 1000) - (now - lastCheckInTime);
@@ -540,19 +545,32 @@
 
                             <div class="space-y-3">
                                 ${PRODUCTS.map(p => {
+                                    if (p.isFlash && !isFlashAvailable) return '';
+
                                     const purchases = (currentUser.purchases && currentUser.purchases[p.id]) || 0;
                                     const limitReached = purchases >= p.limit;
+                                    
                                     return `
-                                        <div class="bg-slate-900/90 p-4 rounded-xl border ${limitReached ? 'border-slate-800 opacity-60' : 'border-slate-800 hover:border-cyan-500/50'} transition-all">
+                                        <div class="bg-slate-900/90 p-4 rounded-xl border ${p.isFlash ? 'border-amber-500/80 bg-amber-950/20' : limitReached ? 'border-slate-800 opacity-60' : 'border-slate-800 hover:border-cyan-500/50'} transition-all">
+                                            ${p.isFlash ? `
+                                                <div class="flex justify-between items-center mb-2">
+                                                    <span class="bg-amber-500 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
+                                                        ⚡ PAQUETE FLASH (24HS)
+                                                    </span>
+                                                    <span class="text-[10px] text-amber-400 font-mono font-bold">
+                                                        ⏱️ Expira en: <span id="flash-plan-timer">${formatTimeRemaining(flashTimeLeft)}</span>
+                                                    </span>
+                                                </div>
+                                            ` : ''}
                                             <div class="flex justify-between items-start mb-2">
                                                 <div>
                                                     <h4 class="font-bold text-white text-sm">${p.name}</h4>                                                     <p class="text-[11px] text-cyan-300 font-semibold">Valor de Compra: <span class="text-white font-bold">$${p.price.toLocaleString()} ARS</span></p>
-                                                    <p class="text-[10px] text-slate-400">Plazo: ${p.days} días • Rendimiento Diario: $${p.dailyYield.toLocaleString()} ARS</p>
+                                                    <p class="text-[10px] text-slate-400">Plazo: ${p.days} días (${p.days * 24}hs) • Rendimiento Diario: $${p.dailyYield.toLocaleString()} ARS</p>
                                                 </div>
                                                 <span class="text-[10px] bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded font-bold">
                                                     Límite: ${purchases}/${p.limit}                                                 </span>                                             </div>                                             <div class="flex justify-between items-center pt-2 border-t border-slate-800/80 mt-1">                                                 <div>                                                     <p class="text-[10px] text-slate-400 uppercase">Total Retorno al Finalizar</p>                                                     <p class="text-xs font-black text-emerald-400">$${p.total.toLocaleString()} ARS</p>
                                                 </div>
-                                                <button onclick="buyProduct(${p.id})" ${limitReached ? 'disabled' : ''} class="${limitReached ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-black'} px-4 py-2 rounded-lg text-xs uppercase tracking-wide">
+                                                <button onclick="buyProduct(${p.id})" ${limitReached ? 'disabled' : ''} class="${limitReached ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : p.isFlash ? 'bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 font-black' : 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-black'} px-4 py-2 rounded-lg text-xs uppercase tracking-wide">
                                                     ${limitReached ? 'Agotado' : 'Adquirir'}
                                                 </button>
                                             </div>
@@ -573,9 +591,21 @@
                     <div class="space-y-4">
                         <div class="bg-slate-900/90 p-5 rounded-xl border border-cyan-500/30 border-glow space-y-4">
                             <h3 class="text-sm font-bold text-cyan-400 uppercase tracking-wider">SISTEMA DE REFERIDOS</h3>
+                            
+                            <div class="bg-amber-950/40 p-3.5 rounded-xl border border-amber-500/40 text-xs text-amber-200 space-y-2">
+                                <p class="font-bold flex items-center gap-1">⚡ <strong>BONO ESPECIAL (PRIMERAS 24HS):</strong></p>
+                                <p class="text-[11px] text-slate-300">
+                                    • Si tu referido se registra y <strong>realiza una carga de saldo</strong> dentro de tus primeras 24hs, ganas <strong class="text-amber-400">$2.000 ARS</strong>.
+                                </p>
+                                <div class="text-[11px] text-amber-300 font-mono font-bold pt-1 border-t border-amber-500/20">
+                                    ⏱️ Tiempo restante bono 24hs: <span id="ref-flash-timer">${isFlashAvailable ? formatTimeRemaining(flashTimeLeft) : 'Finalizado ($500 Instantáneo Activo)'}</span>
+                                </div>
+                            </div>
+
                             <div class="text-xs text-slate-300 space-y-1">
-                                <p>• Recibes <strong class="text-emerald-400">$500 ARS instantáneos</strong> directos a tu saldo por cada referido que adquiera su primer plan.</p>
-                                <p>• Al completar <strong class="text-cyan-400">10 referidos activos</strong>, generas una solicitud para cobrar los otros <strong class="text-emerald-400">$5.000 ARS</strong> de bonificación.</p>
+                                <p>• <strong>Bono Estándar:</strong> Al terminar las 24hs, ganas <strong class="text-emerald-400">$500 ARS instantáneos</strong> por cada nuevo usuario registrado con tu código (sin necesidad de que cargue dinero).</p>
+                                <p>• <strong>Meta Especial:</strong> Al acumular <strong class="text-cyan-400">10 referidos</strong>, solicitas <strong class="text-emerald-400">$5.000 ARS</strong> adicionales.</p>
+                                <p>• ⚠️ <strong>REQUISITO DE RETIRO:</strong> Para retirar tus ganancias acumuladas por referidos debes poseer al menos <strong>1 plan activo</strong>.</p>
                             </div>
                             
                             <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
@@ -601,7 +631,7 @@
 
                             <div class="pt-2">
                                 <div class="flex justify-between text-xs font-bold mb-1">
-                                    <span class="text-slate-300">Progreso Referidos Activos:</span>
+                                    <span class="text-slate-300">Progreso Referidos:</span>
                                     <span class="text-cyan-400">${activeRefs} / 10</span>
                                 </div>
                                 <div class="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-slate-800">
@@ -621,7 +651,7 @@
                                             🎁 Solicitar Cobro de $5.000 ARS (Meta 10 Referidos)
                                         </button>
                                     ` : `
-                                        <p class="text-[11px] text-slate-400 text-center">Completa 10 referidos activos para solicitar la bonificación especial de $5.000 ARS.</p>
+                                        <p class="text-[11px] text-slate-400 text-center">Completa 10 referidos para solicitar la bonificación de $5.000 ARS.</p>
                                     `}
                                 </div>
                             </div>
@@ -668,17 +698,23 @@
                     </div>
                 `;
             } else if (currentView === 'withdraws') {
-                const now = Date.now();
                 const lastWithdraw = currentUser.lastWithdrawTimestamp || 0;
                 const timePassed = now - lastWithdraw;
                 const cooldownMs = 48 * 60 * 60 * 1000;
                 const canWithdraw = timePassed >= cooldownMs;
                 const timeRemainingMs = cooldownMs - timePassed;
+                const hasActivePlan = currentUser.activePlans && currentUser.activePlans.length > 0;
 
                 mainContent = `
                     <div class="bg-slate-900/90 p-5 rounded-xl border border-cyan-500/30 border-glow space-y-4">
                         <h3 class="text-sm font-bold text-cyan-400 uppercase tracking-wider">SOLICITAR RETIRO</h3>
                         <p class="text-xs text-slate-300">Ingresa el monto que deseas retirar de tu cuenta.</p>
+
+                        ${!hasActivePlan && (currentUser.refBalance || 0) > 0 ? `
+                            <div class="bg-rose-950/80 p-3.5 rounded-xl border border-rose-500/50 text-xs text-rose-200">
+                                ⚠️ <strong>REQUISITO PENDIENTE:</strong> Posees <strong>$${currentUser.refBalance.toLocaleString()} ARS</strong> de saldo por referidos. Para retirar fondos debes tener al menos <strong>1 plan activo</strong>.
+                            </div>
+                        ` : ''}
 
                         <div class="space-y-3">
                             <div>
@@ -693,6 +729,7 @@
                                     <li>1 retiro cada 48 hs.</li>
                                     <li><strong>Horario de retiros:</strong> Martes a Viernes de 10:00 a 18:00 hs.</li>
                                     <li>Comisión de gestión: <strong>15%</strong>.</li>
+                                    <li>Se requiere tener 1 plan activo para retirar el saldo de referidos.</li>
                                 </ul>
                                 <p id="detalle-calculo" class="text-xs text-slate-300 font-mono pt-2 border-t border-amber-500/20">Monto neto a recibir: <strong class="text-emerald-400">$0 ARS</strong></p>
                             </div>
@@ -715,7 +752,6 @@
                     </div>
                 `;
             } else if (currentView === 'admin' && currentUser.email === ADMIN_EMAIL) {
-                // Cálculo de Duplicados
                 const emailCounts = {};
                 usersList.forEach(u => {
                     const norm = normalizeEmail(u.email);
@@ -920,6 +956,23 @@
                     }
                 }
 
+                if (currentUser) {
+                    const userCreatedAt = currentUser.createdAt || now;
+                    const flashRem = (24 * 60 * 60 * 1000) - (now - userCreatedAt);
+                    
+                    const flashPlanEl = document.getElementById('flash-plan-timer');
+                    if (flashPlanEl) {
+                        if (flashRem <= 0) render();
+                        else flashPlanEl.innerText = formatTimeRemaining(flashRem);
+                    }
+
+                    const flashRefEl = document.getElementById('ref-flash-timer');
+                    if (flashRefEl) {
+                        if (flashRem <= 0) flashRefEl.innerText = 'Finalizado ($500 Instantáneo Activo)';
+                        else flashRefEl.innerText = formatTimeRemaining(flashRem);
+                    }
+                }
+
                 const planEls = document.querySelectorAll('.plan-timer');
                 planEls.forEach(el => {
                     const end = parseInt(el.getAttribute('data-end'));
@@ -953,6 +1006,7 @@
                 if (doc.exists) return alert('El usuario ya existe');
                 const refCodeEntered = (document.getElementById('refCodeInput')?.value || '').trim().toUpperCase();
                 const myRefCode = generateRefCode();
+                const now = Date.now();
 
                 const newUser = {
                     email,
@@ -969,11 +1023,38 @@
                     activeRefsCount: 0,
                     creditedRefEmails: [],
                     refBonusClaimed: false,
-                    refBonusRequested: false
+                    refBonusRequested: false,
+                    createdAt: now
                 };
 
                 await userRef.set(newUser);
                 currentUser = newUser;
+
+                // Si se registra con código de referente y las 24hs del referente ya pasaron, le da $500 instantáneos
+                if (refCodeEntered) {
+                    const referrerDoc = usersList.find(u => u.refCode === refCodeEntered);
+                    if (referrerDoc) {
+                        const referrerCreatedAt = referrerDoc.createdAt || now;
+                        const isReferrerInFlashWindow = (now - referrerCreatedAt) <= (24 * 60 * 60 * 1000);
+
+                        if (!isReferrerInFlashWindow) {
+                            const creditedList = referrerDoc.creditedRefEmails || [];
+                            if (!creditedList.includes(email)) {
+                                const newActiveCount = (referrerDoc.activeRefsCount || 0) + 1;
+                                const newBalance = (referrerDoc.balance || 0) + 500;
+                                const newRefBalance = (referrerDoc.refBalance || 0) + 500;
+                                const updatedCreditedList = [...creditedList, email];
+
+                                await db.collection('users').doc(referrerDoc.email).update({
+                                    activeRefsCount: newActiveCount,
+                                    balance: newBalance,
+                                    refBalance: newRefBalance,
+                                    creditedRefEmails: updatedCreditedList
+                                });
+                            }
+                        }
+                    }
+                }
             } else {
                 if (!doc.exists || doc.data().password !== pass) return alert('Credenciales incorrectas');
                 currentUser = doc.data();
@@ -1042,6 +1123,14 @@
             const product = PRODUCTS.find(p => p.id === productId);
             const purchases = (currentUser.purchases && currentUser.purchases[productId]) || 0;
 
+            if (product.isFlash) {
+                const now = Date.now();
+                const userCreatedAt = currentUser.createdAt || now;
+                if ((now - userCreatedAt) > (24 * 60 * 60 * 1000)) {
+                    return alert('El Paquete Flash de 24hs ha expirado para tu cuenta.');
+                }
+            }
+
             if (purchases >= product.limit) return alert('Límite de compra alcanzado para este plan');
             
             if ((currentUser.balance || 0) < product.price) return alert('Saldo insuficiente para adquirir este plan');
@@ -1055,7 +1144,6 @@
                 boughtAt: Date.now()
             });
 
-            const isFirstPurchase = Object.keys(currentUser.purchases || {}).length === 0;
             const updatedPurchases = { ...(currentUser.purchases || {}), [productId]: purchases + 1 };
 
             await db.collection('users').doc(currentUser.email).update({
@@ -1064,32 +1152,12 @@
                 activePlans: activePlans
             });
 
-            if (isFirstPurchase && currentUser.referredBy) {
-                const referrerDoc = usersList.find(u => u.refCode === currentUser.referredBy);
-                if (referrerDoc) {
-                    const creditedList = referrerDoc.creditedRefEmails || [];
-                    if (!creditedList.includes(currentUser.email)) {
-                        const newActiveCount = (referrerDoc.activeRefsCount || 0) + 1;
-                        const newBalance = (referrerDoc.balance || 0) + 500;
-                        const newRefBalance = (referrerDoc.refBalance || 0) + 500;
-                        const updatedCreditedList = [...creditedList, currentUser.email];
-
-                        await db.collection('users').doc(referrerDoc.email).update({
-                            activeRefsCount: newActiveCount,
-                            balance: newBalance,
-                            refBalance: newRefBalance,
-                            creditedRefEmails: updatedCreditedList
-                        });
-                    }
-                }
-            }
-
             alert(`¡Plan ${product.name} adquirido con éxito!`);
         }
 
         async function request10RefBonus() {
             if ((currentUser.activeRefsCount || 0) < 10) {
-                return alert("Necesitas tener 10 referidos activos para solicitar esta bonificación.");
+                return alert("Necesitas tener 10 referidos para solicitar esta bonificación.");
             }
 
             await db.collection('recharges').add({
@@ -1142,6 +1210,11 @@
             const now = Date.now();
             const lastWithdraw = currentUser.lastWithdrawTimestamp || 0;
             const cooldownMs = 48 * 60 * 60 * 1000;
+            const hasActivePlan = currentUser.activePlans && currentUser.activePlans.length > 0;
+
+            if (!hasActivePlan && (currentUser.refBalance || 0) > 0) {
+                return alert("⚠️ Debes poseer al menos 1 plan activo para retirar tus ganancias acumuladas por referidos.");
+            }
 
             if ((now - lastWithdraw) < cooldownMs) {
                 return alert('Debes esperar 48 horas exactas entre cada retiro.');
@@ -1208,19 +1281,48 @@
             const userRef = db.collection('users').doc(email);
             const doc = await userRef.get();
             if (doc.exists) {
+                const userData = doc.data();
                 const isBonusFlag = (isBonus === 'true' || isBonus === true);
                 const updates = { 
-                    balance: (doc.data().balance || 0) + amount 
+                    balance: (userData.balance || 0) + amount 
                 };
 
                 if (isBonusFlag) {
                     updates.refBonusClaimed = true;
                     updates.refBonusRequested = false;
-                    updates.refBalance = (doc.data().refBalance || 0) + amount;
+                    updates.refBalance = (userData.refBalance || 0) + amount;
                 }
 
                 await userRef.update(updates);
                 await db.collection('recharges').doc(id).update({ status: 'APPROVED' });
+
+                // Acreditación del bono de $2.000 por carga dentro de las primeras 24hs del referente
+                if (!isBonusFlag && userData.referredBy) {
+                    const referrerDoc = usersList.find(u => u.refCode === userData.referredBy);
+                    if (referrerDoc) {
+                        const now = Date.now();
+                        const referrerCreatedAt = referrerDoc.createdAt || now;
+                        const isWithin24hs = (now - referrerCreatedAt) <= (24 * 60 * 60 * 1000);
+
+                        if (isWithin24hs) {
+                            const creditedList = referrerDoc.creditedRefEmails || [];
+                            if (!creditedList.includes(email)) {
+                                const newActiveCount = (referrerDoc.activeRefsCount || 0) + 1;
+                                const newBalance = (referrerDoc.balance || 0) + 2000;
+                                const newRefBalance = (referrerDoc.refBalance || 0) + 2000;
+                                const updatedCreditedList = [...creditedList, email];
+
+                                await db.collection('users').doc(referrerDoc.email).update({
+                                    activeRefsCount: newActiveCount,
+                                    balance: newBalance,
+                                    refBalance: newRefBalance,
+                                    creditedRefEmails: updatedCreditedList
+                                });
+                            }
+                        }
+                    }
+                }
+
                 alert('Aprobación completada con éxito');
             }
         }
