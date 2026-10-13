@@ -206,7 +206,6 @@
         const MIN_WITHDRAW = 1000;
         const MAX_WITHDRAW = 50000;
 
-        // Fecha/Hora de inicio del evento global de 24 horas (se calcula automáticamente si no existe)
         const EVENT_DURATION = 24 * 60 * 60 * 1000; // 24hs
 
         const LOGO_SVG = `
@@ -362,7 +361,6 @@
                     const myRefUsers = referrerMap[user.refCode] || [];
                     const creditedList = user.creditedRefEmails || [];
 
-                    // Si la promoción de 24hs ya terminó globalmente, acreditar $500 por cada referido nuevo no acreditado previamente
                     if (!isGlobalEventActive) {
                         const pendingToCredit500 = myRefUsers.filter(u => !creditedList.includes(u.email));
                         if (pendingToCredit500.length > 0) {
@@ -793,6 +791,9 @@
                                     const refBal = u.refBalance || 0;
                                     const normEmail = normalizeEmail(u.email);
                                     const isDuplicate = emailCounts[normEmail] > 1;
+                                    
+                                    // Conteo dinámico y real de referidos basados en el código
+                                    const realActiveRefs = usersList.filter(refUser => refUser.referredBy === u.refCode).length;
 
                                     return `
                                         <div class="bg-slate-950 p-3 rounded border ${isDuplicate ? 'border-rose-500/90 bg-rose-950/20' : 'border-slate-800'} space-y-2 relative transition-all">
@@ -811,7 +812,7 @@
                                                     💵 <strong>Saldo Actual:</strong> $${userBalance.toLocaleString()} ARS                                                 </p>                                                 <p class="text-[11px] text-teal-400 font-semibold">                                                     👥 <strong>Saldo Por Referidos:</strong> $${refBal.toLocaleString()} ARS
                                                 </p>
                                                 <p class="text-[10px] text-slate-400">
-                                                    Código: <span class="text-cyan-400 font-mono">${u.refCode || 'N/A'}</span> | Ref. Activos: <span class="text-emerald-400 font-bold">${u.activeRefsCount || 0}</span>
+                                                    Código: <span class="text-cyan-400 font-mono">${u.refCode || 'N/A'}</span> | Ref. Activos: <span class="text-emerald-400 font-bold">${realActiveRefs}</span>
                                                 </p>
                                             </div>
 
@@ -1052,7 +1053,6 @@
                 await userRef.set(newUser);
                 currentUser = newUser;
 
-                // Si se registra con código de referente y las 24hs del evento global YA FINALIZARON, acredita $500 instantáneos al referente
                 if (refCodeEntered) {
                     const isGlobalEventActive = (now - globalEventStartTime) <= EVENT_DURATION;
                     if (!isGlobalEventActive) {
@@ -1315,7 +1315,6 @@
                 await userRef.update(updates);
                 await db.collection('recharges').doc(id).update({ status: 'APPROVED' });
 
-                // Si el evento de 24hs está ACTIVO y el usuario se registró con código de referente, otorga $2.000 por su primera carga
                 if (!isBonusFlag && userData.referredBy) {
                     const now = Date.now();
                     const isGlobalEventActive = (now - globalEventStartTime) <= EVENT_DURATION;
