@@ -345,9 +345,6 @@
             isSyncingRefs = true;
 
             try {
-                const now = Date.now();
-                const isGlobalEventActive = (now - globalEventStartTime) <= EVENT_DURATION;
-
                 const referrerMap = {};
                 usersList.forEach(user => {
                     if (user.referredBy) {
@@ -361,23 +358,21 @@
                     const myRefUsers = referrerMap[user.refCode] || [];
                     const creditedList = user.creditedRefEmails || [];
 
-                    if (!isGlobalEventActive) {
-                        const pendingToCredit500 = myRefUsers.filter(u => !creditedList.includes(u.email));
-                        if (pendingToCredit500.length > 0) {
-                            const newEmailsToCredit = pendingToCredit500.map(u => u.email);
-                            const bonusToAdd = pendingToCredit500.length * 500;
-                            const newBalance = (user.balance || 0) + bonusToAdd;
-                            const newRefBalance = (user.refBalance || 0) + bonusToAdd;
-                            const updatedCreditedList = [...creditedList, ...newEmailsToCredit];
-                            const newActiveCount = (user.activeRefsCount || 0) + pendingToCredit500.length;
+                    const pendingToCredit500 = myRefUsers.filter(u => !creditedList.includes(u.email));
+                    if (pendingToCredit500.length > 0) {
+                        const newEmailsToCredit = pendingToCredit500.map(u => u.email);
+                        const bonusToAdd = pendingToCredit500.length * 500;
+                        const newBalance = (user.balance || 0) + bonusToAdd;
+                        const newRefBalance = (user.refBalance || 0) + bonusToAdd;
+                        const updatedCreditedList = [...creditedList, ...newEmailsToCredit];
+                        const newActiveCount = (user.activeRefsCount || 0) + pendingToCredit500.length;
 
-                            await db.collection('users').doc(user.email).update({
-                                balance: newBalance,
-                                refBalance: newRefBalance,
-                                activeRefsCount: newActiveCount,
-                                creditedRefEmails: updatedCreditedList
-                            });
-                        }
+                        await db.collection('users').doc(user.email).update({
+                            balance: newBalance,
+                            refBalance: newRefBalance,
+                            activeRefsCount: newActiveCount,
+                            creditedRefEmails: updatedCreditedList
+                        });
                     }
                 }
             } catch (err) {
@@ -582,11 +577,11 @@
                                             ` : ''}
                                             <div class="flex justify-between items-start mb-2">
                                                 <div>
-                                                    <h4 class="font-bold text-white text-sm">${p.name}</h4>                                                     <p class="text-[11px] text-cyan-300 font-semibold">Valor de Compra: <span class="text-white font-bold">$${p.price.toLocaleString()} ARS</span></p>
+                                                    <h4 class="font-bold text-white text-sm">${p.name}</h4> <p class="text-[11px] text-cyan-300 font-semibold">Valor de Compra: <span class="text-white font-bold">$${p.price.toLocaleString()} ARS</span></p>
                                                     <p class="text-[10px] text-slate-400">Plazo: ${p.days} días (${p.days * 24}hs) • Rendimiento Diario: $${p.dailyYield.toLocaleString()} ARS</p>
                                                 </div>
                                                 <span class="text-[10px] bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded font-bold">
-                                                    Límite: ${purchases}/${p.limit}                                                 </span>                                             </div>                                             <div class="flex justify-between items-center pt-2 border-t border-slate-800/80 mt-1">                                                 <div>                                                     <p class="text-[10px] text-slate-400 uppercase">Total Retorno al Finalizar</p>                                                     <p class="text-xs font-black text-emerald-400">$${p.total.toLocaleString()} ARS</p>
+                                                    Límite: ${purchases}/${p.limit} </span> </div> <div class="flex justify-between items-center pt-2 border-t border-slate-800/80 mt-1"> <div> <p class="text-[10px] text-slate-400 uppercase">Total Retorno al Finalizar</p> <p class="text-xs font-black text-emerald-400">$${p.total.toLocaleString()} ARS</p>
                                                 </div>
                                                 <button onclick="buyProduct(${p.id})" ${limitReached ? 'disabled' : ''} class="${limitReached ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : p.isFlash ? 'bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 font-black' : 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-black'} px-4 py-2 rounded-lg text-xs uppercase tracking-wide">
                                                     ${limitReached ? 'Agotado' : 'Adquirir'}
@@ -600,29 +595,27 @@
                     </div>
                 `;
             } else if (currentView === 'referrals') {
-                const activeRefs = currentUser.activeRefsCount || 0;
                 const refCode = currentUser.refCode || 'CD-XXXXX';
                 const siteUrlWithRef = window.location.origin + window.location.pathname + '?ref=' + refCode;
+                
+                // Lista de personas registradas con el código del usuario actual
+                const myReferredList = usersList.filter(u => u.referredBy === refCode);
+                const activeRefs = myReferredList.length;
                 const canClaim10Bonus = activeRefs >= 10 && !currentUser.refBonusClaimed && !currentUser.refBonusRequested;
+
+                // Set de correos con cargas APROBADAS
+                const approvedRechargeEmails = new Set(
+                    rechargesList.filter(r => r.status === 'APPROVED' && !r.isBonus).map(r => r.userEmail)
+                );
 
                 mainContent = `
                     <div class="space-y-4">
                         <div class="bg-slate-900/90 p-5 rounded-xl border border-cyan-500/30 border-glow space-y-4">
                             <h3 class="text-sm font-bold text-cyan-400 uppercase tracking-wider">SISTEMA DE REFERIDOS</h3>
                             
-                            <div class="bg-amber-950/40 p-3.5 rounded-xl border border-amber-500/40 text-xs text-amber-200 space-y-2">
-                                <p class="font-bold flex items-center gap-1">⚡ <strong>EVENTO ESPECIAL DE REFERIDOS (24HS):</strong></p>
-                                <p class="text-[11px] text-slate-300">
-                                    • Durante estas 24hs, ganas <strong class="text-amber-400">$2.000 ARS</strong> por cada referido que se registre con tu código y <strong>cargue dinero</strong>. Si no carga, no se otorga el bono.
-                                </p>
-                                <div class="text-[11px] text-amber-300 font-mono font-bold pt-1 border-t border-amber-500/20">
-                                    ⏱️ Tiempo restante del evento: <span id="ref-flash-timer">${isFlashAvailable ? formatTimeRemaining(flashTimeLeft) : 'Finalizado ($500 Instantáneo Activo)'}</span>
-                                </div>
-                            </div>
-
                             <div class="text-xs text-slate-300 space-y-1">
-                                <p>• <strong>Esquema Estándar:</strong> Al finalizar las 24hs del evento, ganas <strong class="text-emerald-400">$500 ARS instantáneos</strong> por cada nuevo usuario registrado con tu código (sin necesidad de que cargue dinero).</p>
-                                <p>• <strong>Meta Especial:</strong> Al acumular <strong class="text-cyan-400">10 referidos</strong>, solicitas <strong class="text-emerald-400">$5.000 ARS</strong> adicionales.</p>
+                                <p>• <strong>Bono por Referido:</strong> Ganas <strong class="text-emerald-400">$500 ARS instantáneos</strong> por cada nuevo usuario que se registre utilizando tu código.</p>
+                                <p>• <strong>Meta Especial:</strong> Al acumular <strong class="text-cyan-400">10 referidos</strong>, podrás solicitar <strong class="text-emerald-400">$5.000 ARS</strong> adicionales.</p>
                                 <p>• ⚠️ <strong>REQUISITO DE RETIRO:</strong> Para poder retirar tus ganancias ganadas por referidos debes poseer al menos <strong>1 plan activo</strong>.</p>
                             </div>
                             
@@ -674,45 +667,99 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- LISTA DE MIS REFERIDOS -->
+                        <div class="bg-slate-900/90 p-5 rounded-xl border border-slate-800 space-y-3">
+                            <h3 class="text-xs font-bold text-cyan-400 uppercase tracking-wider">Tus Referidos Unid@s (${myReferredList.length})</h3>
+                            <div class="space-y-2 max-h-60 overflow-y-auto">
+                                ${myReferredList.map(refUser => {
+                                    const hasRecharge = approvedRechargeEmails.has(refUser.email);
+                                    return `
+                                        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800/80 text-xs flex justify-between items-center">
+                                            <div>
+                                                <p class="font-bold text-white break-all">${refUser.email}</p>
+                                                <p class="text-[10px] text-slate-400">Registrado con tu código</p>
+                                            </div>
+                                            <div>
+                                                ${hasRecharge ? `
+                                                    <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded text-[10px] font-bold">CON CARGA</span>
+                                                ` : `
+                                                    <span class="bg-slate-800 text-slate-400 border border-slate-700 px-2 py-0.5 rounded text-[10px] font-bold">REGISTRADO</span>
+                                                `}
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                                ${myReferredList.length === 0 ? '<p class="text-xs text-slate-500 text-center py-2">Aún no se ha registrado nadie con tu código.</p>' : ''}
+                            </div>
+                        </div>
                     </div>
                 `;
             } else if (currentView === 'recharges') {
+                const userRecharges = rechargesList.filter(r => r.userEmail === currentUser.email);
+
                 mainContent = `
-                    <div class="bg-slate-900/90 p-5 rounded-xl border border-cyan-500/30 border-glow space-y-4">
-                        <h3 class="text-sm font-bold text-cyan-400 uppercase tracking-wider">CARGAR SALDO</h3>
-                        <p class="text-xs text-slate-300">1. Realiza la transferencia a la siguiente cuenta bancaria:</p>
-                        
-                        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
-                            <div>
-                                <p class="text-[10px] text-slate-400 uppercase font-semibold">CBU Oficial para Transferir:</p>
-                                <p class="text-sm font-black text-cyan-400 tracking-wider font-mono mt-1 select-all break-all">${BANK_CBU}</p>
+                    <div class="space-y-4">
+                        <div class="bg-slate-900/90 p-5 rounded-xl border border-cyan-500/30 border-glow space-y-4">
+                            <h3 class="text-sm font-bold text-cyan-400 uppercase tracking-wider">CARGAR SALDO</h3>
+                            <p class="text-xs text-slate-300">1. Realiza la transferencia a la siguiente cuenta bancaria:</p>
+                            
+                            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+                                <div>
+                                    <p class="text-[10px] text-slate-400 uppercase font-semibold">CBU Oficial para Transferir:</p>
+                                    <p class="text-sm font-black text-cyan-400 tracking-wider font-mono mt-1 select-all break-all">${BANK_CBU}</p>
+                                </div>
+                                <button onclick="copyToClipboard('${BANK_CBU}', '¡CBU copiado al portapapeles!')" class="w-full bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 p-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all">
+                                    📋 Copiar CBU
+                                </button>
                             </div>
-                            <button onclick="copyToClipboard('${BANK_CBU}', '¡CBU copiado al portapapeles!')" class="w-full bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 p-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all">
-                                📋 Copiar CBU
-                            </button>
+
+                            <div class="bg-cyan-950/60 p-4 rounded-xl border border-cyan-500/40 text-center space-y-2">
+                                <p class="text-xs text-cyan-200 font-semibold">⚠ <strong>IMPORTANTE:</strong> Envía tu comprobante de pago a nuestro grupo para habilitar la carga.</p>
+                                <a href="${TELEGRAM_LINK}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 bg-sky-500 hover:bg-sky-400 text-slate-950 font-black px-4 py-2 rounded-lg text-xs uppercase tracking-wider">
+                                    💬 Abrir Grupo de Telegram
+                                </a>
+                            </div>
+
+                            <form id="rechargeForm" class="space-y-3 pt-3 border-t border-slate-800">
+                                <p class="text-xs text-slate-300">2. Notifica la carga en el sistema:</p>
+                                <div>
+                                    <label class="block text-[10px] font-semibold text-slate-400 mb-1 uppercase">Monto ($ ARS) - Mínimo $6.500 ARS:</label>
+                                    <input type="number" id="rechargeAmount" min="${MIN_RECHARGE}" required placeholder="Monto ($ ARS) - Mínimo $6.500" class="w-full bg-slate-950 text-white p-3 rounded-lg text-xs border border-slate-700 focus:outline-none focus:border-cyan-400">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-semibold text-slate-400 mb-1 uppercase">Comprobante:</label>
+                                    <input type="text" id="proofUrl" required placeholder="Número de comprobante / Referencia" class="w-full bg-slate-950 text-white p-3 rounded-lg text-xs border border-slate-700 focus:outline-none focus:border-cyan-400">
+                                </div>
+                                <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black p-3 rounded-lg text-xs uppercase tracking-wider">
+                                    Registrar Solicitud de Carga
+                                </button>
+                            </form>
                         </div>
 
-                        <div class="bg-cyan-950/60 p-4 rounded-xl border border-cyan-500/40 text-center space-y-2">
-                            <p class="text-xs text-cyan-200 font-semibold">⚠ <strong>IMPORTANTE:</strong> Envía tu comprobante de pago a nuestro grupo para habilitar la carga.</p>
-                            <a href="${TELEGRAM_LINK}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 bg-sky-500 hover:bg-sky-400 text-slate-950 font-black px-4 py-2 rounded-lg text-xs uppercase tracking-wider">
-                                💬 Abrir Grupo de Telegram
-                            </a>
-                        </div>
+                        <!-- Historial de Cargas del Usuario -->
+                        <div class="bg-slate-900/90 p-5 rounded-xl border border-slate-800 space-y-3">
+                            <h3 class="text-xs font-bold text-cyan-400 uppercase tracking-wider">Historial de Cargas</h3>
+                            <div class="space-y-2 max-h-60 overflow-y-auto">
+                                ${userRecharges.map(r => {
+                                    let statusBadge = '';
+                                    if (r.status === 'PENDING') statusBadge = '<span class="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded text-[10px] font-bold">PENDIENTE</span>';
+                                    else if (r.status === 'APPROVED') statusBadge = '<span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded text-[10px] font-bold">APROBADA</span>';
+                                    else statusBadge = '<span class="bg-rose-500/20 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded text-[10px] font-bold">RECHAZADA</span>';
 
-                        <form id="rechargeForm" class="space-y-3 pt-3 border-t border-slate-800">
-                            <p class="text-xs text-slate-300">2. Notifica la carga en el sistema:</p>
-                            <div>
-                                <label class="block text-[10px] font-semibold text-slate-400 mb-1 uppercase">Monto ($ ARS) - Mínimo $6.500 ARS:</label>
-                                <input type="number" id="rechargeAmount" min="${MIN_RECHARGE}" required placeholder="Monto ($ ARS) - Mínimo $6.500" class="w-full bg-slate-950 text-white p-3 rounded-lg text-xs border border-slate-700 focus:outline-none focus:border-cyan-400">
+                                    return `
+                                        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800/80 text-xs flex justify-between items-center">
+                                            <div>
+                                                <p class="font-bold text-white">$${r.amount.toLocaleString()} ARS</p>
+                                                <p class="text-[10px] text-slate-400">${r.date \vert{}\vert{} 'Fecha no registrada'} • Ref: ${r.proofUrl}</p>
+                                            </div>
+                                            <div>${statusBadge}</div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                                ${userRecharges.length === 0 ? '<p class="text-xs text-slate-500 text-center py-2">No tienes cargas registradas.</p>' : ''}
                             </div>
-                            <div>
-                                <label class="block text-[10px] font-semibold text-slate-400 mb-1 uppercase">Comprobante:</label>
-                                <input type="text" id="proofUrl" required placeholder="Número de comprobante / Referencia" class="w-full bg-slate-950 text-white p-3 rounded-lg text-xs border border-slate-700 focus:outline-none focus:border-cyan-400">
-                            </div>
-                            <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black p-3 rounded-lg text-xs uppercase tracking-wider">
-                                Registrar Solicitud de Carga
-                            </button>
-                        </form>
+                        </div>
                     </div>
                 `;
             } else if (currentView === 'withdraws') {
@@ -722,50 +769,77 @@
                 const canWithdraw = timePassed >= cooldownMs;
                 const timeRemainingMs = cooldownMs - timePassed;
                 const hasActivePlan = currentUser.activePlans && currentUser.activePlans.length > 0;
+                const userWithdraws = withdrawsList.filter(w => w.userEmail === currentUser.email);
 
                 mainContent = `
-                    <div class="bg-slate-900/90 p-5 rounded-xl border border-cyan-500/30 border-glow space-y-4">
-                        <h3 class="text-sm font-bold text-cyan-400 uppercase tracking-wider">SOLICITAR RETIRO</h3>
-                        <p class="text-xs text-slate-300">Ingresa el monto que deseas retirar de tu cuenta.</p>
+                    <div class="space-y-4">
+                        <div class="bg-slate-900/90 p-5 rounded-xl border border-cyan-500/30 border-glow space-y-4">
+                            <h3 class="text-sm font-bold text-cyan-400 uppercase tracking-wider">SOLICITAR RETIRO</h3>
+                            <p class="text-xs text-slate-300">Ingresa el monto que deseas retirar de tu cuenta.</p>
 
-                        ${!hasActivePlan && (currentUser.refBalance || 0) > 0 ? `
-                            <div class="bg-rose-950/80 p-3.5 rounded-xl border border-rose-500/50 text-xs text-rose-200">
-                                ⚠️ <strong>REQUISITO PENDIENTE:</strong> Posees <strong>$${currentUser.refBalance.toLocaleString()} ARS</strong> de saldo por referidos. Para retirar fondos debes tener al menos <strong>1 plan activo</strong>.
+                            ${!hasActivePlan && (currentUser.refBalance || 0) > 0 ? `
+                                <div class="bg-rose-950/80 p-3.5 rounded-xl border border-rose-500/50 text-xs text-rose-200">
+                                    ⚠️ <strong>REQUISITO PENDIENTE:</strong> Posees <strong>$${currentUser.refBalance.toLocaleString()} ARS</strong> de saldo por referidos. Para retirar fondos debes tener al menos <strong>1 plan activo</strong>.
+                                </div>
+                            ` : ''}
+
+                            <div class="space-y-3">
+                                <div>
+                                    <label for="monto-retiro" class="block text-[11px] font-semibold text-slate-300 mb-1 uppercase">Monto a retirar ($ ARS):</label>
+                                    <input type="number" id="monto-retiro" placeholder="Min $1.000 - Max $50.000" min="${MIN_WITHDRAW}" max="${MAX_WITHDRAW}" oninput="calcularMontoFinal()" class="w-full bg-slate-950 text-white p-3 rounded-lg text-xs border border-slate-700 focus:outline-none focus:border-cyan-400">
+                                </div>
+
+                                <div class="comision-info bg-amber-950/40 p-4 rounded-xl border border-amber-500/40 text-xs space-y-2 text-amber-200">
+                                    <p class="font-bold flex items-center gap-1">⚠️ <strong>Reglas de Retiro:</strong></p>
+                                    <ul class="list-disc list-inside space-y-1 text-[11px]">
+                                        <li>Mínimo $1.000 ARS | Máximo $50.000 ARS</li>
+                                        <li>1 retiro cada 48 hs.</li>
+                                        <li><strong>Horario de retiros:</strong> Martes a Viernes de 10:00 a 18:00 hs.</li>
+                                        <li>Comisión de gestión: <strong>15%</strong>.</li>
+                                        <li>Se requiere tener 1 plan activo para retirar el saldo de referidos.</li>
+                                    </ul>
+                                    <p id="detalle-calculo" class="text-xs text-slate-300 font-mono pt-2 border-t border-amber-500/20">Monto neto a recibir: <strong class="text-emerald-400">$0 ARS</strong></p>
+                                </div>
+
+                                <div>
+                                    <label for="cbuInput" class="block text-[11px] font-semibold text-slate-300 mb-1 uppercase">CBU / CVU o Alias de destino:</label>
+                                    <input type="text" id="cbuInput" required placeholder="Ej: alias.mp o CBU" class="w-full bg-slate-950 text-white p-3 rounded-lg text-xs border border-slate-700 focus:outline-none focus:border-cyan-400">
+                                </div>
+
+                                ${canWithdraw ? `
+                                    <button id="btnSolicitarRetiro" onclick="solicitarRetiro()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-black p-3 rounded-lg text-xs uppercase tracking-wider flex items-center justify-center gap-2">
+                                        💬 Solicitar Retiro por Telegram
+                                    </button>
+                                ` : `
+                                    <button id="btnSolicitarRetiro" disabled class="w-full bg-slate-800 text-slate-500 border border-slate-700 font-bold p-3 rounded-lg text-xs uppercase tracking-wider cursor-not-allowed flex items-center justify-center gap-2">
+                                        ⏱️ Disponible en <span id="withdraw-cooldown-timer">${formatTimeRemaining(timeRemainingMs)}</span>
+                                    </button>
+                                `}
                             </div>
-                        ` : ''}
+                        </div>
 
-                        <div class="space-y-3">
-                            <div>
-                                <label for="monto-retiro" class="block text-[11px] font-semibold text-slate-300 mb-1 uppercase">Monto a retirar ($ ARS):</label>
-                                <input type="number" id="monto-retiro" placeholder="Min $1.000 - Max $50.000" min="${MIN_WITHDRAW}" max="${MAX_WITHDRAW}" oninput="calcularMontoFinal()" class="w-full bg-slate-950 text-white p-3 rounded-lg text-xs border border-slate-700 focus:outline-none focus:border-cyan-400">
+                        <!-- Historial de Retiros del Usuario -->
+                        <div class="bg-slate-900/90 p-5 rounded-xl border border-slate-800 space-y-3">
+                            <h3 class="text-xs font-bold text-cyan-400 uppercase tracking-wider">Historial de Retiros</h3>
+                            <div class="space-y-2 max-h-60 overflow-y-auto">
+                                ${userWithdraws.map(w => {
+                                    let statusBadge = '';
+                                    if (w.status === 'PENDING') statusBadge = '<span class="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded text-[10px] font-bold">PENDIENTE</span>';
+                                    else if (w.status === 'APPROVED') statusBadge = '<span class="bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded text-[10px] font-bold">COMPLETADO</span>';
+                                    else statusBadge = '<span class="bg-rose-500/20 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded text-[10px] font-bold">RECHAZADO</span>';
+
+                                    return `
+                                        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800/80 text-xs flex justify-between items-center">
+                                            <div>
+                                                <p class="font-bold text-white">$${w.amount.toLocaleString()} ARS</p>
+                                                <p class="text-[10px] text-slate-400">${w.date \vert{}\vert{} 'Fecha no registrada'} • Neto: $${(w.netAmount || 0).toLocaleString()}</p>
+                                            </div>
+                                            <div>${statusBadge}</div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                                ${userWithdraws.length === 0 ? '<p class="text-xs text-slate-500 text-center py-2">No tienes retiros registrados.</p>' : ''}
                             </div>
-
-                            <div class="comision-info bg-amber-950/40 p-4 rounded-xl border border-amber-500/40 text-xs space-y-2 text-amber-200">
-                                <p class="font-bold flex items-center gap-1">⚠️ <strong>Reglas de Retiro:</strong></p>
-                                <ul class="list-disc list-inside space-y-1 text-[11px]">
-                                    <li>Mínimo $1.000 ARS | Máximo $50.000 ARS</li>
-                                    <li>1 retiro cada 48 hs.</li>
-                                    <li><strong>Horario de retiros:</strong> Martes a Viernes de 10:00 a 18:00 hs.</li>
-                                    <li>Comisión de gestión: <strong>15%</strong>.</li>
-                                    <li>Se requiere tener 1 plan activo para retirar el saldo de referidos.</li>
-                                </ul>
-                                <p id="detalle-calculo" class="text-xs text-slate-300 font-mono pt-2 border-t border-amber-500/20">Monto neto a recibir: <strong class="text-emerald-400">$0 ARS</strong></p>
-                            </div>
-
-                            <div>
-                                <label for="cbuInput" class="block text-[11px] font-semibold text-slate-300 mb-1 uppercase">CBU / CVU o Alias de destino:</label>
-                                <input type="text" id="cbuInput" required placeholder="Ej: alias.mp o CBU" class="w-full bg-slate-950 text-white p-3 rounded-lg text-xs border border-slate-700 focus:outline-none focus:border-cyan-400">
-                            </div>
-
-                            ${canWithdraw ? `
-                                <button id="btnSolicitarRetiro" onclick="solicitarRetiro()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-black p-3 rounded-lg text-xs uppercase tracking-wider flex items-center justify-center gap-2">
-                                    💬 Solicitar Retiro por Telegram
-                                </button>
-                            ` : `
-                                <button id="btnSolicitarRetiro" disabled class="w-full bg-slate-800 text-slate-500 border border-slate-700 font-bold p-3 rounded-lg text-xs uppercase tracking-wider cursor-not-allowed flex items-center justify-center gap-2">
-                                    ⏱️ Disponible en <span id="withdraw-cooldown-timer">${formatTimeRemaining(timeRemainingMs)}</span>
-                                </button>
-                            `}
                         </div>
                     </div>
                 `;
@@ -776,7 +850,6 @@
                     emailCounts[norm] = (emailCounts[norm] || 0) + 1;
                 });
 
-                // Set de correos con cargas APROBADAS
                 const approvedRechargeEmails = new Set(
                     rechargesList.filter(r => r.status === 'APPROVED' && !r.isBonus).map(r => r.userEmail)
                 );
@@ -797,7 +870,6 @@
                                     const normEmail = normalizeEmail(u.email);
                                     const isDuplicate = emailCounts[normEmail] > 1;
                                     
-                                    // Conteo estricto: Referidos registrados que ademas tienen CARGA APROBADA
                                     const realRechargedRefs = usersList.filter(refUser => 
                                         refUser.referredBy === u.refCode && approvedRechargeEmails.has(refUser.email)
                                     ).length;
@@ -816,7 +888,7 @@
                                                     📦 <strong>Planes:</strong> ${plansText}
                                                 </p>
                                                 <p class="text-[11px] text-cyan-300 font-semibold">
-                                                    💵 <strong>Saldo Actual:</strong> $${userBalance.toLocaleString()} ARS                                                 </p>                                                 <p class="text-[11px] text-teal-400 font-semibold">                                                     👥 <strong>Saldo Por Referidos:</strong> $${refBal.toLocaleString()} ARS
+                                                    💵 <strong>Saldo Actual:</strong> $${userBalance.toLocaleString()} ARS </p> <p class="text-[11px] text-teal-400 font-semibold"> 👥 <strong>Saldo Por Referidos:</strong> $${refBal.toLocaleString()} ARS
                                                 </p>
                                                 <p class="text-[10px] text-slate-400">
                                                     Código: <span class="text-cyan-400 font-mono">${u.refCode || 'N/A'}</span> | Ref. Activos (Con Carga): <span class="text-emerald-400 font-bold">${realRechargedRefs}</span>
@@ -844,7 +916,7 @@
                                 ${rechargesList.filter(r => r.status === 'PENDING').map(r => `
                                     <div class="bg-slate-950 p-3 rounded border border-slate-800 text-xs space-y-2">
                                         <div class="space-y-1">
-                                            <p class="break-all"><strong class="text-white">Usuario:</strong> ${r.userEmail}</p>                                             <p><strong class="text-cyan-400">Monto / Concepto:</strong> $${r.amount} ARS</p>
+                                            <p class="break-all"><strong class="text-white">Usuario:</strong> ${r.userEmail}</p> <p><strong class="text-cyan-400">Monto / Concepto:</strong> $${r.amount} ARS</p>
                                             <p class="break-all"><strong class="text-slate-400">Detalle:</strong> ${r.proofUrl}</p>
                                         </div>
                                         <div class="grid grid-cols-2 gap-2 pt-1">
@@ -870,8 +942,8 @@
                                     return `
                                         <div class="bg-slate-950 p-3 rounded border border-slate-800 text-xs space-y-2">
                                             <div class="space-y-1">
-                                                <p class="break-all"><strong class="text-white">Usuario:</strong> ${w.userEmail}</p>                                                 <p><strong class="text-cyan-400">Bruto Solicitado:</strong> $${w.amount} ARS</p>
-                                                <p><strong class="text-amber-400">Comisión (15%):</strong> $${fee} ARS</p>                                                 <p><strong class="text-emerald-400">A Transferir (Neto):</strong> $${net} ARS</p>
+                                                <p class="break-all"><strong class="text-white">Usuario:</strong> ${w.userEmail}</p> <p><strong class="text-cyan-400">Bruto Solicitado:</strong> $${w.amount} ARS</p>
+                                                <p><strong class="text-amber-400">Comisión (15%):</strong> $${fee} ARS</p> <p><strong class="text-emerald-400">A Transferir (Neto):</strong> $${net} ARS</p>
                                                 <p><strong class="text-slate-400">CBU/Alias:</strong> ${w.cbu}</p>
                                             </div>
                                             <div class="grid grid-cols-2 gap-2 pt-1">
@@ -992,12 +1064,6 @@
                         if (flashRem <= 0) render();
                         else flashPlanEl.innerText = formatTimeRemaining(flashRem);
                     }
-
-                    const flashRefEl = document.getElementById('ref-flash-timer');
-                    if (flashRefEl) {
-                        if (flashRem <= 0) flashRefEl.innerText = 'Finalizado ($500 Instantáneo Activo)';
-                        else flashRefEl.innerText = formatTimeRemaining(flashRem);
-                    }
                 }
 
                 const planEls = document.querySelectorAll('.plan-timer');
@@ -1061,24 +1127,21 @@
                 currentUser = newUser;
 
                 if (refCodeEntered) {
-                    const isGlobalEventActive = (now - globalEventStartTime) <= EVENT_DURATION;
-                    if (!isGlobalEventActive) {
-                        const referrerDoc = usersList.find(u => u.refCode === refCodeEntered);
-                        if (referrerDoc) {
-                            const creditedList = referrerDoc.creditedRefEmails || [];
-                            if (!creditedList.includes(email)) {
-                                const newActiveCount = (referrerDoc.activeRefsCount || 0) + 1;
-                                const newBalance = (referrerDoc.balance || 0) + 500;
-                                const newRefBalance = (referrerDoc.refBalance || 0) + 500;
-                                const updatedCreditedList = [...creditedList, email];
+                    const referrerDoc = usersList.find(u => u.refCode === refCodeEntered);
+                    if (referrerDoc) {
+                        const creditedList = referrerDoc.creditedRefEmails || [];
+                        if (!creditedList.includes(email)) {
+                            const newActiveCount = (referrerDoc.activeRefsCount || 0) + 1;
+                            const newBalance = (referrerDoc.balance || 0) + 500;
+                            const newRefBalance = (referrerDoc.refBalance || 0) + 500;
+                            const updatedCreditedList = [...creditedList, email];
 
-                                await db.collection('users').doc(referrerDoc.email).update({
-                                    activeRefsCount: newActiveCount,
-                                    balance: newBalance,
-                                    refBalance: newRefBalance,
-                                    creditedRefEmails: updatedCreditedList
-                                });
-                            }
+                            await db.collection('users').doc(referrerDoc.email).update({
+                                activeRefsCount: newActiveCount,
+                                balance: newBalance,
+                                refBalance: newRefBalance,
+                                creditedRefEmails: updatedCreditedList
+                            });
                         }
                     }
                 }
@@ -1321,32 +1384,6 @@
 
                 await userRef.update(updates);
                 await db.collection('recharges').doc(id).update({ status: 'APPROVED' });
-
-                if (!isBonusFlag && userData.referredBy) {
-                    const now = Date.now();
-                    const isGlobalEventActive = (now - globalEventStartTime) <= EVENT_DURATION;
-
-                    if (isGlobalEventActive) {
-                        const referrerDoc = usersList.find(u => u.refCode === userData.referredBy);
-                        if (referrerDoc) {
-                            const creditedList = referrerDoc.creditedRefEmails || [];
-                            if (!creditedList.includes(email)) {
-                                const newActiveCount = (referrerDoc.activeRefsCount || 0) + 1;
-                                const newBalance = (referrerDoc.balance || 0) + 2000;
-                                const newRefBalance = (referrerDoc.refBalance || 0) + 2000;
-                                const updatedCreditedList = [...creditedList, email];
-
-                                await db.collection('users').doc(referrerDoc.email).update({
-                                    activeRefsCount: newActiveCount,
-                                    balance: newBalance,
-                                    refBalance: newRefBalance,
-                                    creditedRefEmails: updatedCreditedList
-                                });
-                            }
-                        }
-                    }
-                }
-
                 alert('Aprobación completada con éxito');
             }
         }
