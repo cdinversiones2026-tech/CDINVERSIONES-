@@ -11,11 +11,26 @@
         body { background-color: #020617; color: #f8fafc; font-family: sans-serif; }
         .glow-cyan { text-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
         .border-glow { box-shadow: 0 0 15px rgba(56, 189, 248, 0.15); }
+        .cd-modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(6px);
+            display: none; justify-content: center; align-items: center; z-index: 10000; padding: 16px;
+        }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen">
+
+    <div id="modalAviso" class="cd-modal-overlay">
+      <div class="bg-[#0f172a] border border-cyan-500/40 rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl">
+        <span class="text-[10px] bg-cyan-500/20 text-cyan-300 font-bold px-3 py-1 rounded-full border border-cyan-500/40">AVISO IMPORTANTE</span>
+        <h2 class="text-lg font-bold my-3 text-white">Términos de Operación</h2>
+        <p class="text-xs text-slate-300 mb-4">Recarga mínima: $6.500 ARS | Retiro mínimo: $1.000 ARS (Comisión 15%).</p>
+        <button onclick="document.getElementById('modalAviso').style.display='none'" class="w-full bg-cyan-500 text-slate-950 font-bold py-2.5 rounded-lg text-xs uppercase">Entendido</button>
+      </div>
+    </div>
+
     <div id="app" class="max-w-md mx-auto min-h-screen p-4 flex flex-col justify-center items-center">
-        <p class="text-cyan-400 font-bold text-sm tracking-widest animate-pulse">Cargando panel...</p>
+        <p class="text-cyan-400 font-bold text-sm tracking-widest animate-pulse">Cargando plataforma...</p>
     </div>
 
     <script>
@@ -38,82 +53,125 @@
                 const ADMIN_EMAIL = "cdinversiones2026@gmail.com";
                 const ADMIN_PASS = "somos.9";
                 let currentUser = null;
+                let isRegisterMode = false;
 
-                function showLogin() {
-                    const app = document.getElementById('app');
-                    app.className = "max-w-md mx-auto min-h-screen p-4 flex flex-col justify-center items-center";
-                    app.innerHTML = `
-                        <div class="bg-slate-900/90 p-6 rounded-2xl border border-cyan-500/30 border-glow w-full text-center">
-                            <h1 class="text-2xl font-black tracking-wider text-cyan-400 glow-cyan mb-1">CDINVERSIONES</h1>
-                            <p class="text-slate-400 text-xs mb-6">Plataforma de Inversión</p>
-                            <form id="loginForm" class="space-y-3 text-left">
-                                <div>
-                                    <label class="block text-[11px] font-semibold text-slate-300 mb-1 uppercase">Correo</label>
-                                    <input type="email" id="emailInput" required class="w-full bg-slate-950 text-white p-3 rounded-lg border border-slate-700 text-xs focus:outline-none focus:border-cyan-400">
-                                </div>
-                                <div>
-                                    <label class="block text-[11px] font-semibold text-slate-300 mb-1 uppercase">Contraseña</label>
-                                    <input type="password" id="passInput" required class="w-full bg-slate-950 text-white p-3 rounded-lg border border-slate-700 text-xs focus:outline-none focus:border-cyan-400">
-                                </div>
-                                <button type="submit" class="w-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black p-3 rounded-lg text-xs uppercase tracking-wider mt-2">Iniciar Sesión</button>
-                            </form>
-                        </div>
-                    `;
-
-                    document.getElementById('loginForm').onsubmit = async (e) => {
-                        e.preventDefault();
-                        const email = document.getElementById('emailInput').value.trim().toLowerCase();
-                        const pass = document.getElementById('passInput').value;
-
-                        if (email === ADMIN_EMAIL && pass === ADMIN_PASS) {
-                            currentUser = { email: ADMIN_EMAIL, balance: 0, isAdmin: true };
-                            showDashboard();
-                            return;
-                        }
-
-                        try {
-                            const doc = await db.collection('users').doc(email).get();
-                            if (!doc.exists || doc.data().password !== pass) {
-                                alert('Credenciales incorrectas');
-                                return;
-                            }
-                            currentUser = doc.data();
-                            showDashboard();
-                        } catch (err) {
-                            alert('Error al conectar con la base de datos.');
-                        }
-                    };
+                function getUrlRefCode() {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    return (urlParams.get('ref') || '').trim().toUpperCase();
                 }
 
-                function showDashboard() {
+                window.renderApp = function() {
                     const app = document.getElementById('app');
+                    const autoRefCode = getUrlRefCode();
+
+                    if (!currentUser) {
+                        app.className = "max-w-md mx-auto min-h-screen p-4 flex flex-col justify-center items-center";
+                        app.innerHTML = `
+                            <div class="bg-slate-900/90 p-6 rounded-2xl border border-cyan-500/30 border-glow w-full text-center">
+                                <h1 class="text-2xl font-black tracking-wider text-cyan-400 glow-cyan mb-1">CDINVERSIONES</h1>
+                                <p class="text-slate-400 text-xs mb-6">Plataforma de Inversión</p>
+                                <form id="authForm" class="space-y-3 text-left">
+                                    <div>
+                                        <label class="block text-[11px] font-semibold text-slate-300 mb-1 uppercase">Correo Electrónico</label>
+                                        <input type="email" id="emailInput" required class="w-full bg-slate-950 text-white p-3 rounded-lg border border-slate-700 text-xs focus:outline-none focus:border-cyan-400" placeholder="correo@ejemplo.com">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[11px] font-semibold text-slate-300 mb-1 uppercase">Contraseña</label>
+                                        <input type="password" id="passInput" required class="w-full bg-slate-950 text-white p-3 rounded-lg border border-slate-700 text-xs focus:outline-none focus:border-cyan-400" placeholder="••••••••">
+                                    </div>
+                                    ${isRegisterMode ? `
+                                        <div>
+                                            <label class="block text-[11px] font-semibold text-cyan-400 mb-1 uppercase">Código de Referido</label>
+                                            <input type="text" id="refCodeInput" value="${autoRefCode}" class="w-full bg-slate-950 text-white p-3 rounded-lg border border-cyan-500/50 text-xs font-mono font-bold">
+                                        </div>
+                                    ` : ''}
+                                    <button type="submit" class="w-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black p-3 rounded-lg text-xs uppercase tracking-wider mt-2">
+                                        ${isRegisterMode ? 'Crear Cuenta' : 'Iniciar Sesión'}
+                                    </button>
+                                </form>
+                                <div class="mt-5">
+                                    <button onclick="window.toggleMode()" class="text-cyan-400 hover:underline text-xs font-semibold">
+                                        ${isRegisterMode ? '¿Ya tienes cuenta? Inicia Sesión' : '¿No tienes cuenta? Regístrate aquí'}
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+
+                        document.getElementById('authForm').onsubmit = handleAuthSubmit;
+                        return;
+                    }
+
                     app.className = "max-w-md mx-auto min-h-screen flex flex-col justify-between relative bg-slate-950 pb-20";
                     app.innerHTML = `
                         <div>
                             <div class="bg-slate-900 p-4 border-b border-slate-800 flex justify-between items-center sticky top-0 z-50">
                                 <div>
                                     <h2 class="text-sm font-black text-cyan-400 tracking-wider">PANEL</h2>
-                                    <p class="text-[10px] text-slate-300">${currentUser.email}</p>
+                                    <p class="text-[10px] text-slate-300 truncate max-w-[200px]">${currentUser.email}</p>
                                 </div>
-                                <button onclick="location.reload()" class="text-slate-400 hover:text-red-400 text-xs font-bold uppercase">Salir</button>
+                                <button onclick="currentUser=null; window.renderApp();" class="text-slate-400 hover:text-red-400 text-xs font-bold uppercase">Salir</button>
                             </div>
                             <div class="p-4 space-y-4">
-                                <div class="bg-gradient-to-r from-blue-900 to-cyan-900 rounded-2xl p-5 border border-cyan-500/40 text-white">
-                                    <p class="text-[10px] font-bold uppercase text-cyan-300">Saldo Disponible</p>
+                                <div class="bg-gradient-to-r from-blue-900 to-cyan-900 rounded-2xl p-5 border border-cyan-500/40 text-white shadow-xl">
+                                    <p class="text-[10px] font-bold uppercase text-cyan-300">SALDO DISPONIBLE</p>
                                     <h1 class="text-3xl font-black my-1">$${(currentUser.balance || 0).toLocaleString()} ARS</h1>
                                 </div>
-                                <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 text-center">
-                                    <p class="text-xs text-slate-300">¡Conexión exitosa! El panel se encuentra operativo.</p>
+                                <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 text-center space-y-2">
+                                    <p class="text-xs text-slate-300">Bienvenido a tu panel de inversión y referidos.</p>
+                                    <button onclick="alert('Sistema operativo al 100%')" class="bg-cyan-500 text-slate-950 font-bold px-4 py-2 rounded-lg text-xs uppercase">Ver Planes</button>
                                 </div>
                             </div>
                         </div>
                     `;
+                };
+
+                window.toggleMode = function() {
+                    isRegisterMode = !isRegisterMode;
+                    window.renderApp();
+                };
+
+                async function handleAuthSubmit(e) {
+                    e.preventDefault();
+                    const email = document.getElementById('emailInput').value.trim().toLowerCase();
+                    const pass = document.getElementById('passInput').value;
+
+                    if (email === ADMIN_EMAIL && pass === ADMIN_PASS) {
+                        currentUser = { email: ADMIN_EMAIL, balance: 0, isAdmin: true };
+                        window.renderApp();
+                        return;
+                    }
+
+                    const userRef = db.collection('users').doc(email);
+                    const doc = await userRef.get();
+
+                    if (isRegisterMode) {
+                        if (doc.exists) return alert('El usuario ya existe');
+                        const newUserData = {
+                            email,
+                            password: pass,
+                            balance: 0,
+                            refBalance: 0,
+                            createdAt: Date.now()
+                        };
+                        await userRef.set(newUserData);
+                        currentUser = newUserData;
+                        alert('¡Cuenta creada con éxito!');
+                    } else {
+                        if (!doc.exists || doc.data().password !== pass) {
+                            return alert('Credenciales incorrectas');
+                        }
+                        currentUser = doc.data();
+                    }
+
+                    window.renderApp();
+                    document.getElementById('modalAviso').style.display = 'flex';
                 }
 
-                showLogin();
+                window.renderApp();
 
             } catch (err) {
-                document.getElementById('app').innerHTML = '<div class="text-rose-400 text-xs text-center p-4">Error crítico al iniciar la aplicación.</div>';
+                console.error(err);
+                document.getElementById('app').innerHTML = '<div class="text-rose-400 text-xs text-center p-4">Error al inicializar la aplicación.</div>';
             }
         });
     </script>
