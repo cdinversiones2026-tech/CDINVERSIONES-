@@ -11,21 +11,34 @@
         body { background-color: #020617; color: #f8fafc; font-family: sans-serif; }
         .glow-cyan { text-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
         .border-glow { box-shadow: 0 0 15px rgba(56, 189, 248, 0.15); }
+        
         .cd-modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(6px);
             display: none; justify-content: center; align-items: center; z-index: 10000; padding: 16px;
         }
+        .cd-modal-card {
+            background: #0f172a; border: 1px solid rgba(56, 189, 248, 0.4);
+            border-radius: 16px; padding: 24px 20px; max-width: 400px; width: 100%;
+            box-shadow: 0 0 25px rgba(56, 189, 248, 0.2); text-align: center; color: #f8fafc;
+        }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen">
 
+    <!-- Modal de Avisos -->
     <div id="modalAviso" class="cd-modal-overlay">
-      <div class="bg-[#0f172a] border border-cyan-500/40 rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl">
+      <div class="cd-modal-card">
         <span class="text-[10px] bg-cyan-500/20 text-cyan-300 font-bold px-3 py-1 rounded-full border border-cyan-500/40">AVISO IMPORTANTE</span>
         <h2 class="text-lg font-bold my-3 text-white">Términos de Operación</h2>
-        <p class="text-xs text-slate-300 mb-4">Recarga mínima: $6.500 ARS | Retiro mínimo: $1.000 ARS (Comisión 15%).</p>
-        <button onclick="document.getElementById('modalAviso').style.display='none'" class="w-full bg-cyan-500 text-slate-950 font-bold py-2.5 rounded-lg text-xs uppercase">Entendido</button>
+        <ul class="text-left text-xs space-y-2 mb-4 bg-slate-900 p-3 rounded-xl border border-slate-800">
+            <li>💳 <strong>Mínimo recarga:</strong> $6.500 ARS</li>
+            <li>💸 <strong>Mínimo retiro:</strong> $1.000 ARS</li>
+            <li>📉 <strong>Comisión retiro:</strong> 15%</li>
+            <li>⏱️ <strong>Frecuencia:</strong> 1 cada 48 hs</li>
+            <li>📅 <strong>Horarios:</strong> Mar a Vie de 10:00 a 18:00 hs</li>
+        </ul>
+        <button onclick="cerrarAviso()" class="w-full bg-cyan-500 text-slate-950 font-bold py-2.5 rounded-lg text-xs uppercase">Entendido / Aceptar</button>
       </div>
     </div>
 
@@ -52,24 +65,75 @@
 
                 const ADMIN_EMAIL = "cdinversiones2026@gmail.com";
                 const ADMIN_PASS = "somos.9";
+                const BANK_CBU = "0000013000032204321913";
+                const TELEGRAM_LINK = "https://t.me/+qniSEJG2aDM2ZWQ5";
+                const WITHDRAW_FEE = 0.15;
+                const MIN_RECHARGE = 6500;
+                const MIN_WITHDRAW = 1000;
+                const MAX_WITHDRAW = 50000;
+                const EVENT_DURATION = 24 * 60 * 60 * 1000;
+
+                const PRODUCTS = [
+                    { id: 99, name: "⚡ Paquete Flash 24hs", price: 7000, days: 3, dailyYield: 4800, total: 14400, limit: 1, isFlash: true },
+                    { id: 1, name: "Plan Celular 5.000 ARS", price: 5000, days: 3, dailyYield: 2583, total: 7750, limit: 1 },
+                    { id: 2, name: "Plan Celular 10.000 ARS", price: 10000, days: 6, dailyYield: 2583, total: 15500, limit: 1 },
+                    { id: 3, name: "Plan Celular 16.000 ARS", price: 16000, days: 8, dailyYield: 3100, total: 24800, limit: 1 },
+                    { id: 4, name: "Plan Celular 20.000 ARS", price: 20000, days: 11, dailyYield: 2818, total: 31000, limit: 1 },
+                    { id: 5, name: "Plan Celular 28.000 ARS", price: 28000, days: 15, dailyYield: 2893, total: 43400, limit: 2 },
+                    { id: 6, name: "Plan Celular 36.000 ARS", price: 36000, days: 18, dailyYield: 3100, total: 55800, limit: 2 },
+                    { id: 7, name: "Plan Celular 45.000 ARS", price: 45000, days: 25, dailyYield: 2790, total: 69750, limit: 2 },
+                    { id: 8, name: "Plan Celular 60.000 ARS", price: 60000, days: 30, dailyYield: 3100, total: 93000, limit: 2 },
+                    { id: 9, name: "Plan Celular 75.000 ARS", price: 75000, days: 36, dailyYield: 3646, total: 131250, limit: 3 },
+                    { id: 10, name: "Plan Celular 100.000 ARS", price: 100000, days: 48, dailyYield: 3646, total: 175000, limit: 3 },
+                    { id: 11, name: "Plan Celular 150.000 ARS", price: 150000, days: 70, dailyYield: 3750, total: 262500, limit: 3 }
+                ];
+
                 let currentUser = null;
+                let currentView = 'home';
                 let isRegisterMode = false;
+                let usersList = [];
+                let rechargesList = [];
+                let withdrawsList = [];
+                let globalEventStartTime = Date.now();
 
                 function getUrlRefCode() {
                     const urlParams = new URLSearchParams(window.location.search);
                     return (urlParams.get('ref') || '').trim().toUpperCase();
                 }
 
-                window.renderApp = function() {
+                function generateRefCode() {
+                    return 'CD-' + Math.random().toString(36).substring(2, 7).toUpperCase();
+                }
+
+                window.mostrarAviso = function() {
+                    const m = document.getElementById("modalAviso");
+                    if (m) m.style.display = "flex";
+                }
+
+                window.cerrarAviso = function() {
+                    const m = document.getElementById("modalAviso");
+                    if (m) m.style.display = "none";
+                }
+
+                window.copyToClipboard = function(text, msg) {
+                    navigator.clipboard.writeText(text).then(() => alert(msg || 'Copiado'));
+                };
+
+                window.render = function() {
                     const app = document.getElementById('app');
                     const autoRefCode = getUrlRefCode();
+
+                    if (autoRefCode && !currentUser && !isRegisterMode) {
+                        isRegisterMode = true;
+                    }
 
                     if (!currentUser) {
                         app.className = "max-w-md mx-auto min-h-screen p-4 flex flex-col justify-center items-center";
                         app.innerHTML = `
                             <div class="bg-slate-900/90 p-6 rounded-2xl border border-cyan-500/30 border-glow w-full text-center">
                                 <h1 class="text-2xl font-black tracking-wider text-cyan-400 glow-cyan mb-1">CDINVERSIONES</h1>
-                                <p class="text-slate-400 text-xs mb-6">Plataforma de Inversión</p>
+                                <p class="text-slate-400 text-xs mb-6">Plataforma de Inversión Automatizada</p>
+                                
                                 <form id="authForm" class="space-y-3 text-left">
                                     <div>
                                         <label class="block text-[11px] font-semibold text-slate-300 mb-1 uppercase">Correo Electrónico</label>
@@ -82,62 +146,172 @@
                                     ${isRegisterMode ? `
                                         <div>
                                             <label class="block text-[11px] font-semibold text-cyan-400 mb-1 uppercase">Código de Referido</label>
-                                            <input type="text" id="refCodeInput" value="${autoRefCode}" class="w-full bg-slate-950 text-white p-3 rounded-lg border border-cyan-500/50 text-xs font-mono font-bold">
+                                            <input type="text" id="refCodeInput" value="${autoRefCode}" ${autoRefCode ? 'readonly' : ''} class="w-full bg-slate-950 text-white p-3 rounded-lg border border-cyan-500/50 text-xs font-mono font-bold">
                                         </div>
                                     ` : ''}
                                     <button type="submit" class="w-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black p-3 rounded-lg text-xs uppercase tracking-wider mt-2">
                                         ${isRegisterMode ? 'Crear Cuenta' : 'Iniciar Sesión'}
                                     </button>
                                 </form>
+                                
                                 <div class="mt-5">
-                                    <button onclick="window.toggleMode()" class="text-cyan-400 hover:underline text-xs font-semibold">
+                                    <button onclick="toggleAuthMode()" class="text-cyan-400 hover:underline text-xs font-semibold">
                                         ${isRegisterMode ? '¿Ya tienes cuenta? Inicia Sesión' : '¿No tienes cuenta? Regístrate aquí'}
                                     </button>
                                 </div>
                             </div>
                         `;
-
-                        document.getElementById('authForm').onsubmit = handleAuthSubmit;
+                        document.getElementById('authForm').onsubmit = handleAuth;
                         return;
                     }
 
                     app.className = "max-w-md mx-auto min-h-screen flex flex-col justify-between relative bg-slate-950 pb-20";
+                    let mainContent = '';
+
+                    if (currentView === 'home') {
+                        mainContent = `
+                            <div class="space-y-4">
+                                <div class="grid grid-cols-2 gap-3">
+                                    <button onclick="setView('recharges')" class="bg-emerald-600 hover:bg-emerald-500 p-3.5 rounded-xl font-black text-white text-xs uppercase flex items-center justify-center gap-2 shadow-lg">
+                                        <span>⬇️</span> Cargar Saldo
+                                    </button>
+                                    <button onclick="setView('withdraws')" class="bg-blue-600 hover:bg-blue-500 p-3.5 rounded-xl font-black text-white text-xs uppercase flex items-center justify-center gap-2 shadow-lg">
+                                        <span>⬆️</span> Retirar
+                                    </button>
+                                </div>
+
+                                <div>
+                                    <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-400 mb-3">Planes Disponibles</h3>
+                                    <div class="space-y-3">
+                                        ${PRODUCTS.map(p => `
+                                            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-2">
+                                                <div class="flex justify-between items-start">
+                                                    <div>
+                                                        <h4 class="font-bold text-white text-sm">${p.name}</h4> <p class="text-[11px] text-cyan-300">Precio: $${p.price.toLocaleString()} ARS</p>
+                                                        <p class="text-[10px] text-slate-400">Plazo: ${p.days} días • Retorno Total: <strong class="text-emerald-400">$${p.total.toLocaleString()} ARS</strong></p>
+                                                    </div>
+                                                </div>
+                                                <button onclick="buyProduct(${p.id})" class="w-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black py-2 rounded-lg text-xs uppercase">
+                                                    Adquirir Plan
+                                                </button>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    } else if (currentView === 'referrals') {
+                        const refCode = currentUser.refCode || 'CD-XXXX';
+                        const siteUrl = window.location.origin + window.location.pathname + '?ref=' + refCode;
+                        mainContent = `
+                            <div class="bg-slate-900 p-5 rounded-xl border border-cyan-500/30 space-y-4">
+                                <h3 class="text-sm font-bold text-cyan-400 uppercase">Sistema de Referidos</h3>
+                                <p class="text-xs text-slate-300">Gana $500 ARS por cada usuario que se registre con tu enlace.</p>
+                                <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 break-all">
+                                    <p class="text-[10px] text-slate-400 uppercase">Tu enlace:</p>
+                                    <p class="text-xs text-cyan-300 font-mono mt-1">${siteUrl}</p>
+                                </div>
+                                <button onclick="copyToClipboard('${siteUrl}', '¡Enlace copiado!')" class="w-full bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 p-2.5 rounded-lg text-xs font-bold">
+                                    📋 Copiar Enlace
+                                </button>
+                            </div>
+                        `;
+                    } else if (currentView === 'recharges') {
+                        mainContent = `
+                            <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 space-y-4">
+                                <h3 class="text-sm font-bold text-cyan-400 uppercase">Cargar Saldo</h3>
+                                <p class="text-xs text-slate-300">Transfiere al CBU oficial y notifica tu pago:</p>
+                                <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                                    <p class="text-[10px] text-slate-400 uppercase">CBU:</p>
+                                    <p class="text-xs font-bold text-cyan-400 font-mono select-all">${BANK_CBU}</p>
+                                </div>
+                                <a href="${TELEGRAM_LINK}" target="_blank" class="block text-center bg-sky-500 text-slate-950 font-bold p-2.5 rounded-lg text-xs uppercase">
+                                    💬 Enviar Comprobante por Telegram
+                                </a>
+                            </div>
+                        `;
+                    } else if (currentView === 'withdraws') {
+                        mainContent = `
+                            <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 space-y-4">
+                                <h3 class="text-sm font-bold text-cyan-400 uppercase">Solicitar Retiro</h3>
+                                <p class="text-xs text-slate-300">Mínimo $1.000 ARS • Comisión 15% • Horario Mar a Vie 10 a 18hs.</p>
+                                <div>
+                                    <label class="block text-[10px] text-slate-400 uppercase mb-1">Monto a retirar:</label>
+                                    <input type="number" id="monto-retiro" placeholder="Mínimo 1000" class="w-full bg-slate-950 text-white p-3 rounded-lg text-xs border border-slate-700">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] text-slate-400 uppercase mb-1">CBU o Alias:</label>
+                                    <input type="text" id="cbuInput" placeholder="Alias o CBU de destino" class="w-full bg-slate-950 text-white p-3 rounded-lg text-xs border border-slate-700">
+                                </div>
+                                <button onclick="alert('Solicitud registrada')" class="w-full bg-cyan-500 text-slate-950 font-black p-3 rounded-lg text-xs uppercase">
+                                    Solicitar Retiro
+                                </button>
+                            </div>
+                        `;
+                    } else if (currentView === 'admin' && currentUser.email === ADMIN_EMAIL) {
+                        mainContent = `
+                            <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 space-y-3">
+                                <h3 class="text-sm font-bold text-cyan-400 uppercase">Panel Administrador</h3>
+                                <p class="text-xs text-slate-300">Usuarios registrados: ${usersList.length}</p>
+                            </div>
+                        `;
+                    }
+
                     app.innerHTML = `
                         <div>
                             <div class="bg-slate-900 p-4 border-b border-slate-800 flex justify-between items-center sticky top-0 z-50">
                                 <div>
                                     <h2 class="text-sm font-black text-cyan-400 tracking-wider">PANEL</h2>
-                                    <p class="text-[10px] text-slate-300 truncate max-w-[200px]">${currentUser.email}</p>
+                                    <p class="text-[10px] text-slate-300 truncate max-w-[180px]">${currentUser.email}</p>
                                 </div>
-                                <button onclick="currentUser=null; window.renderApp();" class="text-slate-400 hover:text-red-400 text-xs font-bold uppercase">Salir</button>
+                                <button onclick="logout()" class="text-slate-400 hover:text-red-400 text-xs font-bold uppercase">Salir</button>
                             </div>
+
                             <div class="p-4 space-y-4">
                                 <div class="bg-gradient-to-r from-blue-900 to-cyan-900 rounded-2xl p-5 border border-cyan-500/40 text-white shadow-xl">
                                     <p class="text-[10px] font-bold uppercase text-cyan-300">SALDO DISPONIBLE</p>
                                     <h1 class="text-3xl font-black my-1">$${(currentUser.balance || 0).toLocaleString()} ARS</h1>
                                 </div>
-                                <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 text-center space-y-2">
-                                    <p class="text-xs text-slate-300">Bienvenido a tu panel de inversión y referidos.</p>
-                                    <button onclick="alert('Sistema operativo al 100%')" class="bg-cyan-500 text-slate-950 font-bold px-4 py-2 rounded-lg text-xs uppercase">Ver Planes</button>
-                                </div>
+                                ${mainContent}
                             </div>
+                        </div>
+
+                        <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-slate-900/95 border-t border-slate-800 flex justify-around py-2.5 text-slate-400 z-50 text-[10px]">
+                            <button onclick="setView('home')" class="${currentView === 'home' ? 'text-cyan-400 font-bold' : ''}">📱 Panel</button>
+                            <button onclick="setView('referrals')" class="${currentView === 'referrals' ? 'text-cyan-400 font-bold' : ''}">👥 Referidos</button>
+                            <button onclick="setView('recharges')" class="${currentView === 'recharges' ? 'text-cyan-400 font-bold' : ''}">💳 Cargar</button>
+                            <button onclick="setView('withdraws')" class="${currentView === 'withdraws' ? 'text-cyan-400 font-bold' : ''}">🏦 Retirar</button>
+                            ${currentUser.email === ADMIN_EMAIL ? `<button onclick="setView('admin')" class="${currentView === 'admin' ? 'text-cyan-400 font-bold' : ''}">⚙ Admin</button>` : ''}
                         </div>
                     `;
                 };
 
-                window.toggleMode = function() {
+                window.toggleAuthMode = function() {
                     isRegisterMode = !isRegisterMode;
-                    window.renderApp();
+                    render();
                 };
 
-                async function handleAuthSubmit(e) {
+                window.setView = function(v) {
+                    currentView = v;
+                    render();
+                };
+
+                window.logout = function() {
+                    currentUser = null;
+                    cerrarAviso();
+                    render();
+                };
+
+                async function handleAuth(e) {
                     e.preventDefault();
                     const email = document.getElementById('emailInput').value.trim().toLowerCase();
                     const pass = document.getElementById('passInput').value;
 
                     if (email === ADMIN_EMAIL && pass === ADMIN_PASS) {
                         currentUser = { email: ADMIN_EMAIL, balance: 0, isAdmin: true };
-                        window.renderApp();
+                        currentView = 'admin';
+                        listenToData();
+                        render();
                         return;
                     }
 
@@ -146,32 +320,55 @@
 
                     if (isRegisterMode) {
                         if (doc.exists) return alert('El usuario ya existe');
-                        const newUserData = {
+                        const refCodeEntered = (document.getElementById('refCodeInput')?.value || '').trim().toUpperCase();
+                        const newUser = {
                             email,
                             password: pass,
                             balance: 0,
                             refBalance: 0,
-                            createdAt: Date.now()
+                            refCode: generateRefCode(),
+                            referredBy: refCodeEntered || null
                         };
-                        await userRef.set(newUserData);
-                        currentUser = newUserData;
-                        alert('¡Cuenta creada con éxito!');
+                        await userRef.set(newUser);
+                        currentUser = newUser;
                     } else {
-                        if (!doc.exists || doc.data().password !== pass) {
-                            return alert('Credenciales incorrectas');
-                        }
+                        if (!doc.exists || doc.data().password !== pass) return alert('Credenciales incorrectas');
                         currentUser = doc.data();
                     }
 
-                    window.renderApp();
-                    document.getElementById('modalAviso').style.display = 'flex';
+                    currentView = 'home';
+                    listenToData();
+                    render();
+                    mostrarAviso();
                 }
 
-                window.renderApp();
+                window.buyProduct = async function(id) {
+                    const product = PRODUCTS.find(p => p.id === id);
+                    if ((currentUser.balance || 0) < product.price) return alert('Saldo insuficiente');
+                    
+                    const newBalance = currentUser.balance - product.price;
+                    await db.collection('users').doc(currentUser.email).update({ balance: newBalance });
+                    currentUser.balance = newBalance;
+                    alert(`¡Plan ${product.name} adquirido con éxito!`);
+                    render();
+                };
+
+                function listenToData() {
+                    db.collection('users').onSnapshot(snap => {
+                        usersList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                        if (currentUser) {
+                            const match = usersList.find(u => u.email === currentUser.email);
+                            if (match) currentUser = match;
+                        }
+                        render();
+                    });
+                }
+
+                render();
 
             } catch (err) {
                 console.error(err);
-                document.getElementById('app').innerHTML = '<div class="text-rose-400 text-xs text-center p-4">Error al inicializar la aplicación.</div>';
+                document.getElementById('app').innerHTML = '<div class="text-rose-400 text-xs text-center p-4">Error al iniciar la aplicación.</div>';
             }
         });
     </script>
