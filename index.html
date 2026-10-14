@@ -148,17 +148,18 @@
         `;
 
         const PRODUCTS = [
-            { id: 1, name: "Plan Celular 5.000 ARS", price: 5000, days: 3, dailyYield: 2583, total: 7750, limit: 1 },
-            { id: 2, name: "Plan Celular 10.000 ARS", price: 10000, days: 6, dailyYield: 2583, total: 15500, limit: 1 },
-            { id: 3, name: "Plan Celular 16.000 ARS", price: 16000, days: 8, dailyYield: 3100, total: 24800, limit: 1 },
-            { id: 4, name: "Plan Celular 20.000 ARS", price: 20000, days: 11, dailyYield: 2818, total: 31000, limit: 1 },
-            { id: 5, name: "Plan Celular 28.000 ARS", price: 28000, days: 15, dailyYield: 2893, total: 43400, limit: 2 },
-            { id: 6, name: "Plan Celular 36.000 ARS", price: 36000, days: 18, dailyYield: 3100, total: 55800, limit: 2 },
-            { id: 7, name: "Plan Celular 45.000 ARS", price: 45000, days: 25, dailyYield: 2790, total: 69750, limit: 2 },
-            { id: 8, name: "Plan Celular 60.000 ARS", price: 60000, days: 30, dailyYield: 3100, total: 93000, limit: 2 },
-            { id: 9, name: "Plan Celular 75.000 ARS", price: 75000, days: 36, dailyYield: 3646, total: 131250, limit: 3 },
-            { id: 10, name: "Plan Celular 100.000 ARS", price: 100000, days: 48, dailyYield: 3646, total: 175000, limit: 3 },
-            { id: 11, name: "Plan Celular 150.000 ARS", price: 150000, days: 70, dailyYield: 3750, total: 262500, limit: 3 }
+            { id: "flash_24hs", name: "⚡ Paquete Flash 24hs", price: 7000, days: 3, dailyYield: 4800, total: 14400, limit: 0, isFlash: true },
+            { id: "plan_1", name: "Plan Celular 5.000 ARS", price: 5000, days: 3, dailyYield: 2583, total: 7750, limit: 1 },
+            { id: "plan_2", name: "Plan Celular 10.000 ARS", price: 10000, days: 6, dailyYield: 2583, total: 15500, limit: 1 },
+            { id: "plan_3", name: "Plan Celular 16.000 ARS", price: 16000, days: 8, dailyYield: 3100, total: 24800, limit: 1 },
+            { id: "plan_4", name: "Plan Celular 20.000 ARS", price: 20000, days: 11, dailyYield: 2818, total: 31000, limit: 1 },
+            { id: "plan_5", name: "Plan Celular 28.000 ARS", price: 28000, days: 15, dailyYield: 2893, total: 43400, limit: 2 },
+            { id: "plan_6", name: "Plan Celular 36.000 ARS", price: 36000, days: 18, dailyYield: 3100, total: 55800, limit: 2 },
+            { id: "plan_7", name: "Plan Celular 45.000 ARS", price: 45000, days: 25, dailyYield: 2790, total: 69750, limit: 2 },
+            { id: "plan_8", name: "Plan Celular 60.000 ARS", price: 60000, days: 30, dailyYield: 3100, total: 93000, limit: 2 },
+            { id: "plan_9", name: "Plan Celular 75.000 ARS", price: 75000, days: 36, dailyYield: 3646, total: 131250, limit: 3 },
+            { id: "plan_10", name: "Plan Celular 100.000 ARS", price: 100000, days: 48, dailyYield: 3646, total: 175000, limit: 3 },
+            { id: "plan_11", name: "Plan Celular 150.000 ARS", price: 150000, days: 70, dailyYield: 3750, total: 262500, limit: 3 }
         ];
 
         let currentUser = null;
@@ -352,20 +353,25 @@
                             </div>
                         </div>
 
-                        <!-- MIS PLANES ADQUIRIDOS -->
+                        <!-- MIS PLANES ADQUIRIDOS (CON RETORNO TOTAL) -->
                         <div class="bg-slate-900/90 p-4 rounded-xl border border-cyan-500/30 space-y-3">
                             <h3 class="text-xs font-bold uppercase tracking-wider text-emerald-400">Mis Planes Adquiridos (${activePlans.length})</h3>
                             <div class="space-y-2">
-                                ${activePlans.map(p => `
-                                    <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 flex justify-between items-center text-xs">
-                                        <div>
-                                            <p class="font-bold text-white">${p.name}</p> <p class="text-[10px] text-slate-400">Diario: $${p.dailyYield.toLocaleString()} ARS • Plazo: ${p.days} días</p>
+                                ${activePlans.map(p => {
+                                    const qty = userPurchases[p.id];
+                                    const totalAccumulatedReturn = p.total * qty;
+
+                                    return `
+                                        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 flex justify-between items-center text-xs">
+                                            <div>
+                                                <p class="font-bold text-white">${p.name}</p> <p class="text-[10px] text-slate-400">Rendimiento: $${p.dailyYield.toLocaleString()} ARS/día • Plazo: ${p.days} días</p> <p class="text-[11px] text-emerald-400 font-bold mt-0.5">Retorno Total: $${totalAccumulatedReturn.toLocaleString()} ARS</p>
+                                            </div>
+                                            <span class="bg-emerald-500/20 text-emerald-300 font-bold px-2 py-1 rounded border border-emerald-500/40 text-[10px] flex-shrink-0 ml-2">
+                                                ${qty} Activo(s)
+                                            </span>
                                         </div>
-                                        <span class="bg-emerald-500/20 text-emerald-300 font-bold px-2 py-1 rounded border border-emerald-500/40 text-[10px]">
-                                            ${userPurchases[p.id]} Activo(s)
-                                        </span>
-                                    </div>
-                                `).join('')}
+                                    `;
+                                }).join('')}
                                 ${activePlans.length === 0 ? '<p class="text-xs text-slate-500 text-center py-1">Aún no tienes planes activos.</p>' : ''}
                             </div>
                         </div>
@@ -379,10 +385,15 @@
                             <div class="space-y-3">
                                 ${PRODUCTS.map(p => {
                                     const purchases = (currentUser.purchases && currentUser.purchases[p.id]) || 0;
+                                    
+                                    // Si es el paquete flash y el usuario NO lo ha comprado, lo ocultamos de la tienda
+                                    if (p.isFlash && purchases === 0) return '';
+
                                     const limitReached = purchases >= p.limit;
                                     
                                     return `
-                                        <div class="bg-slate-900/90 p-4 rounded-xl border ${limitReached ? 'border-slate-800 opacity-60' : 'border-slate-800 hover:border-cyan-500/50'} transition-all">
+                                        <div class="bg-slate-900/90 p-4 rounded-xl border ${p.isFlash ? 'border-amber-500/80 bg-amber-950/20' : limitReached ? 'border-slate-800 opacity-60' : 'border-slate-800 hover:border-cyan-500/50'} transition-all">
+                                            ${p.isFlash ? `<span class="bg-amber-500 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded uppercase mb-2 inline-block">⚡ PAQUETE FLASH (24HS)</span>` : ''}
                                             <div class="flex justify-between items-start mb-2">
                                                 <div>
                                                     <h4 class="font-bold text-white text-sm">${p.name}</h4> <p class="text-[11px] text-cyan-300 font-semibold">Valor de Compra: <span class="text-white font-bold">$${p.price.toLocaleString()} ARS</span></p>
@@ -391,7 +402,7 @@
                                                 <span class="text-[10px] bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded font-bold">
                                                     Límite: ${purchases}/${p.limit} </span> </div> <div class="flex justify-between items-center pt-2 border-t border-slate-800/80 mt-1"> <div> <p class="text-[10px] text-slate-400 uppercase">Total Retorno al Finalizar</p> <p class="text-xs font-black text-emerald-400">$${p.total.toLocaleString()} ARS</p>
                                                 </div>
-                                                <button onclick="buyProduct(${p.id})" ${limitReached ? 'disabled' : ''} class="${limitReached ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-black'} px-4 py-2 rounded-lg text-xs uppercase tracking-wide">
+                                                <button onclick="buyProduct('${p.id}')" ${limitReached ? 'disabled' : ''} class="${limitReached ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-black'} px-4 py-2 rounded-lg text-xs uppercase tracking-wide">
                                                     ${limitReached ? 'Agotado' : 'Adquirir'}
                                                 </button>
                                             </div>
@@ -612,19 +623,39 @@
                             </div>
                         </div>
 
-                        <!-- Lista de Usuarios, Saldos y Referidos -->
+                        <!-- Lista de Usuarios, Saldos, Referidos y Planes Activos -->
                         <div class="bg-slate-900/90 p-4 rounded-xl border border-slate-800 space-y-3">
                             <h4 class="font-bold text-white text-xs mb-3 uppercase">Gestión de Usuarios (${usersList.length})</h4>
                             <div class="space-y-3 max-h-[28rem] overflow-y-auto">
                                 ${usersList.map(u => {
                                     const countRefs = usersList.filter(x => x.referredBy === u.refCode).length;
+                                    const uPurchases = u.purchases || {};
+                                    const uActivePlans = PRODUCTS.filter(p => (uPurchases[p.id] || 0) > 0);
+
                                     return `
                                         <div class="bg-slate-950 p-3 rounded border border-slate-800 space-y-2">
                                             <div class="break-all space-y-1">
                                                 <p class="font-bold text-white text-xs">${u.email}</p> <p class="text-[11px] text-cyan-300">Saldo Inversión: $${(u.balance || 0).toLocaleString()} ARS</p>
                                                 <p class="text-[11px] text-emerald-400">Referidos: <strong>${countRefs}</strong> \vert{} Saldo Referidos: <strong>$${(u.refBalance || 0).toLocaleString()} ARS</strong></p>
+                                                
+                                                <!-- DETALLE DE PLANES ACTIVOS DEL USUARIO EN ADMIN -->
+                                                <div class="pt-1">
+                                                    <p class="text-[10px] text-slate-400 font-bold uppercase">Planes Activos:</p>
+                                                    ${uActivePlans.length > 0 ? `
+                                                        <ul class="text-[10px] text-slate-300 space-y-0.5 mt-0.5">
+                                                            ${uActivePlans.map(p => `
+                                                                <li class="flex justify-between bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                                                                    <span>• ${p.name}</span>
+                                                                    <strong class="text-cyan-400">${uPurchases[p.id]} unidad(es)</strong>
+                                                                </li>
+                                                            `).join('')}
+                                                        </ul>
+                                                    ` : `
+                                                        <p class="text-[10px] text-slate-500 italic">Sin planes activos</p>
+                                                    `}
+                                                </div>
                                             </div>
-                                            <div class="flex items-center gap-2 pt-1 border-t border-slate-900">
+                                            <div class="flex items-center gap-2 pt-2 border-t border-slate-900">
                                                 <input type="number" id="balanceInput_${u.id}" value="${u.balance || 0}" class="w-full bg-slate-900 text-cyan-300 font-bold p-2 rounded text-xs border border-slate-700">
                                                 <button onclick="setManualBalance('${u.email}', 'balanceInput_${u.id}')" class="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black px-3 py-2 rounded text-xs flex-shrink-0 uppercase">Guardar</button>
                                                 <button onclick="deleteUserAccount('${u.email}')" class="bg-rose-600 hover:bg-rose-500 text-white font-black px-3 py-2 rounded text-xs flex-shrink-0 uppercase">Eliminar</button>
@@ -791,6 +822,8 @@
 
         async function buyProduct(productId) {
             const product = PRODUCTS.find(p => p.id === productId);
+            if (!product) return alert('Plan no encontrado');
+
             const purchases = (currentUser.purchases && currentUser.purchases[productId]) || 0;
 
             if (purchases >= product.limit) return alert('Límite de compra alcanzado para este plan');
