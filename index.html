@@ -206,7 +206,7 @@
         const MIN_WITHDRAW = 1000;
         const MAX_WITHDRAW = 50000;
 
-        const EVENT_DURATION = 24 * 60 * 60 * 1000; // 24hs
+        const EVENT_DURATION = 24 * 60 * 60 * 1000;
 
         const LOGO_SVG = `
             <div class="w-full h-full bg-gradient-to-br from-blue-900 via-slate-950 to-cyan-950 flex items-center justify-center p-2 rounded-xl border border-cyan-400/40">
@@ -598,12 +598,10 @@
                 const refCode = currentUser.refCode || 'CD-XXXXX';
                 const siteUrlWithRef = window.location.origin + window.location.pathname + '?ref=' + refCode;
                 
-                // Lista de personas registradas con el código del usuario actual
                 const myReferredList = usersList.filter(u => u.referredBy === refCode);
                 const activeRefs = myReferredList.length;
                 const canClaim10Bonus = activeRefs >= 10 && !currentUser.refBonusClaimed && !currentUser.refBonusRequested;
 
-                // Set de correos con cargas APROBADAS
                 const approvedRechargeEmails = new Set(
                     rechargesList.filter(r => r.status === 'APPROVED' && !r.isBonus).map(r => r.userEmail)
                 );
