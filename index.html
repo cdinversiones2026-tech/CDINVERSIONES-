@@ -35,8 +35,9 @@
             <li>💳 <strong>Mínimo recarga:</strong> $6.500 ARS</li>
             <li>💸 <strong>Mínimo retiro:</strong> $1.000 ARS</li>
             <li>📉 <strong>Comisión retiro:</strong> 15%</li>
-            <li>⏱️ <strong>Frecuencia:</strong> 1 cada 48 hs</li>
+            <li>⏱️ <strong>Frecuencia:</strong> 1 retiro cada 48 hs</li>
             <li>📅 <strong>Horarios:</strong> Mar a Vie de 10:00 a 18:00 hs</li>
+            <li>🔒 <strong>Referidos:</strong> Requiere 1 plan activo</li>
         </ul>
         <button onclick="cerrarAviso()" class="w-full bg-cyan-500 text-slate-950 font-bold py-2.5 rounded-lg text-xs uppercase">Entendido / Aceptar</button>
       </div>
@@ -71,7 +72,7 @@
                 const MIN_RECHARGE = 6500;
                 const MIN_WITHDRAW = 1000;
                 const MAX_WITHDRAW = 50000;
-                const EVENT_DURATION = 24 * 60 * 60 * 1000;
+                const EVENT_DURATION = 24 * 60 * 60 * 1000; // 24 horas
 
                 const PRODUCTS = [
                     { id: 99, name: "⚡ Paquete Flash 24hs", price: 7000, days: 3, dailyYield: 4800, total: 14400, limit: 1, isFlash: true },
@@ -94,7 +95,7 @@
                 let usersList = [];
                 let rechargesList = [];
                 let withdrawsList = [];
-                let globalEventStartTime = Date.now();
+                let globalEventStartTime = null;
 
                 function getUrlRefCode() {
                     const urlParams = new URLSearchParams(window.location.search);
@@ -119,7 +120,23 @@
                     navigator.clipboard.writeText(text).then(() => alert(msg || 'Copiado'));
                 };
 
-                window.render = function() {
+                async function initGlobalEventTime() {
+                    try {
+                        const eventDocRef = db.collection('settings').doc('event24h');
+                        const doc = await eventDocRef.get();
+                        if (doc.exists) {
+                            globalEventStartTime = doc.data().startTime;
+                        } else {
+                            const now = Date.now();
+                            await eventDocRef.set({ startTime: now });
+                            globalEventStartTime = now;
+                        }
+                    } catch (err) {
+                        if (!globalEventStartTime) globalEventStartTime = Date.now();
+                    }
+                }
+
+                window.render = async function() {
                     const app = document.getElementById('app');
                     const autoRefCode = getUrlRefCode();
 
@@ -167,6 +184,10 @@
 
                     app.className = "max-w-md mx-auto min-h-screen flex flex-col justify-between relative bg-slate-950 pb-20";
                     let mainContent = '';
+                    const now = Date.now();
+                    const eventStart = globalEventStartTime || now;
+                    const flashLeft = EVENT_DURATION - (now - eventStart);
+                    const isFlashActive = flashLeft > 0;
 
                     if (currentView === 'home') {
                         mainContent = `
@@ -183,19 +204,26 @@
                                 <div>
                                     <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-400 mb-3">Planes Disponibles</h3>
                                     <div class="space-y-3">
-                                        ${PRODUCTS.map(p => `
-                                            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-2">
-                                                <div class="flex justify-between items-start">
-                                                    <div>
-                                                        <h4 class="font-bold text-white text-sm">${p.name}</h4> <p class="text-[11px] text-cyan-300">Precio: $${p.price.toLocaleString()} ARS</p>
-                                                        <p class="text-[10px] text-slate-400">Plazo: ${p.days} días • Retorno Total: <strong class="text-emerald-400">$${p.total.toLocaleString()} ARS</strong></p>
+                                        ${PRODUCTS.map(p => {
+                                            if (p.isFlash && !isFlashActive) return '';
+                                            const purchases = (currentUser.purchases && currentUser.purchases[p.id]) || 0;
+                                            const limitReached = purchases >= p.limit;
+
+                                            return `
+                                                <div class="bg-slate-900 p-4 rounded-xl border ${p.isFlash ? 'border-amber-500/80 bg-amber-950/20' : 'border-slate-800'} space-y-2">
+                                                    ${p.isFlash ? `<span class="bg-amber-500 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded uppercase">⚡ PAQUETE FLASH (24HS)</span>` : ''}
+                                                    <div class="flex justify-between items-start">
+                                                        <div>
+                                                            <h4 class="font-bold text-white text-sm">${p.name}</h4> <p class="text-[11px] text-cyan-300">Precio: $${p.price.toLocaleString()} ARS</p>
+                                                            <p class="text-[10px] text-slate-400">Plazo: ${p.days} días • Retorno Total: <strong class="text-emerald-400">$${p.total.toLocaleString()} ARS</strong></p>
+                                                        </div>
                                                     </div>
+                                                    <button onclick="buyProduct(${p.id})" ${limitReached ? 'disabled' : ''} class="w-full ${limitReached ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black'} py-2 rounded-lg text-xs uppercase">
+                                                        ${limitReached ? 'Agotado' : 'Adquirir Plan'}
+                                                    </button>
                                                 </div>
-                                                <button onclick="buyProduct(${p.id})" class="w-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black py-2 rounded-lg text-xs uppercase">
-                                                    Adquirir Plan
-                                                </button>
-                                            </div>
-                                        `).join('')}
+                                            `;
+                                        }).join('')}
                                     </div>
                                 </div>
                             </div>
@@ -250,9 +278,22 @@
                         `;
                     } else if (currentView === 'admin' && currentUser.email === ADMIN_EMAIL) {
                         mainContent = `
-                            <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 space-y-3">
-                                <h3 class="text-sm font-bold text-cyan-400 uppercase">Panel Administrador</h3>
-                                <p class="text-xs text-slate-300">Usuarios registrados: ${usersList.length}</p>
+                            <div class="space-y-4">
+                                <div class="bg-slate-900 p-5 rounded-xl border border-cyan-500/30 space-y-3">
+                                    <h3 class="text-sm font-bold text-cyan-400 uppercase">Panel Administrador</h3>
+                                    <p class="text-xs text-slate-300">Total Usuarios Registrados: <strong class="text-white">${usersList.length}</strong></p>
+                                </div>
+                                <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-3">
+                                    <h4 class="text-xs font-bold text-white uppercase">Lista de Usuarios</h4>
+                                    <div class="space-y-2 max-h-72 overflow-y-auto">
+                                        ${usersList.map(u => `
+                                            <div class="bg-slate-950 p-3 rounded border border-slate-800 text-xs space-y-1">
+                                                <p class="font-bold text-cyan-300 break-all">${u.email}</p> <p class="text-slate-400">Saldo: $${(u.balance || 0).toLocaleString()} ARS</p>
+                                                <button onclick="deleteUser('${u.email}')" class="mt-1 bg-rose-600 text-white px-2.5 py-1 rounded text-[10px] uppercase font-bold">Eliminar</button>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
                             </div>
                         `;
                     }
@@ -310,6 +351,7 @@
                     if (email === ADMIN_EMAIL && pass === ADMIN_PASS) {
                         currentUser = { email: ADMIN_EMAIL, balance: 0, isAdmin: true };
                         currentView = 'admin';
+                        await initGlobalEventTime();
                         listenToData();
                         render();
                         return;
@@ -317,6 +359,7 @@
 
                     const userRef = db.collection('users').doc(email);
                     const doc = await userRef.get();
+                    await initGlobalEventTime();
 
                     if (isRegisterMode) {
                         if (doc.exists) return alert('El usuario ya existe');
@@ -347,10 +390,24 @@
                     if ((currentUser.balance || 0) < product.price) return alert('Saldo insuficiente');
                     
                     const newBalance = currentUser.balance - product.price;
-                    await db.collection('users').doc(currentUser.email).update({ balance: newBalance });
+                    const purchases = currentUser.purchases || {};
+                    purchases[id] = (purchases[id] || 0) + 1;
+
+                    await db.collection('users').doc(currentUser.email).update({ 
+                        balance: newBalance,
+                        purchases: purchases
+                    });
                     currentUser.balance = newBalance;
+                    currentUser.purchases = purchases;
                     alert(`¡Plan ${product.name} adquirido con éxito!`);
                     render();
+                };
+
+                window.deleteUser = async function(email) {
+                    if (confirm(`¿Eliminar usuario ${email}?`)) {
+                        await db.collection('users').doc(email).delete();
+                        alert('Usuario eliminado');
+                    }
                 };
 
                 function listenToData() {
@@ -364,7 +421,7 @@
                     });
                 }
 
-                render();
+                initGlobalEventTime().then(() => render());
 
             } catch (err) {
                 console.error(err);
