@@ -12,99 +12,44 @@
         .border-glow { box-shadow: 0 0 15px rgba(56, 189, 248, 0.15); }
         
         .cd-modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(2, 6, 23, 0.85);
-            backdrop-filter: blur(6px);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 10000;
-            padding: 16px;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(6px);
+            display: none; justify-content: center; align-items: center; z-index: 10000; padding: 16px;
         }
 
         .cd-modal-card {
-            background: #0f172a;
-            border: 1px solid rgba(56, 189, 248, 0.4);
-            border-radius: 16px;
-            padding: 24px 20px;
-            max-width: 400px;
-            width: 100%;
-            box-shadow: 0 0 25px rgba(56, 189, 248, 0.2);
-            text-align: center;
-            font-family: system-ui, -apple-system, sans-serif;
-            color: #f8fafc;
+            background: #0f172a; border: 1px solid rgba(56, 189, 248, 0.4);
+            border-radius: 16px; padding: 24px 20px; max-width: 400px; width: 100%;
+            box-shadow: 0 0 25px rgba(56, 189, 248, 0.2); text-align: center;
+            font-family: system-ui, -apple-system, sans-serif; color: #f8fafc;
         }
 
         .cd-badge-alert {
-            background: rgba(56, 189, 248, 0.1);
-            color: #38bdf8;
-            border: 1px solid rgba(56, 189, 248, 0.4);
-            font-size: 10px;
-            font-weight: 800;
-            letter-spacing: 1px;
-            padding: 4px 10px;
-            border-radius: 20px;
-            display: inline-block;
-            margin-bottom: 8px;
+            background: rgba(56, 189, 248, 0.1); color: #38bdf8;
+            border: 1px solid rgba(56, 189, 248, 0.4); font-size: 10px; font-weight: 800;
+            letter-spacing: 1px; padding: 4px 10px; border-radius: 20px; display: inline-block; margin-bottom: 8px;
         }
 
-        .cd-modal-header h2 {
-            margin: 4px 0 16px 0;
-            font-size: 20px;
-            font-weight: 800;
-            color: #ffffff;
-        }
+        .cd-modal-header h2 { margin: 4px 0 16px 0; font-size: 20px; font-weight: 800; color: #ffffff; }
 
-        .cd-modal-list {
-            list-style: none;
-            padding: 0;
-            margin: 0 0 20px 0;
-            text-align: left;
-        }
+        .cd-modal-list { list-style: none; padding: 0; margin: 0 0 20px 0; text-align: left; }
 
         .cd-modal-list li {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 12px;
-            background: #1e293b;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 10px;
-            margin-bottom: 8px;
-            font-size: 13px;
+            display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+            background: #1e293b; border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 10px; margin-bottom: 8px; font-size: 13px;
         }
 
         .cd-icon { font-size: 18px; }
 
-        .cd-modal-list strong {
-            display: block;
-            color: #94a3b8;
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
+        .cd-modal-list strong { display: block; color: #94a3b8; font-size: 11px; font-weight: 600; text-transform: uppercase; }
 
-        .cd-modal-list span {
-            color: #38bdf8;
-            font-weight: 700;
-        }
+        .cd-modal-list span { color: #38bdf8; font-weight: 700; }
 
         .cd-btn-primary {
-            width: 100%;
-            background: linear-gradient(90deg, #38bdf8, #2563eb);
-            color: #020617;
-            border: none;
-            padding: 12px 20px;
-            font-size: 14px;
-            font-weight: 900;
-            border-radius: 8px;
-            cursor: pointer;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            width: 100%; background: linear-gradient(90deg, #38bdf8, #2563eb); color: #020617;
+            border: none; padding: 12px 20px; font-size: 14px; font-weight: 900;
+            border-radius: 8px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px;
             box-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
         }
     </style>
@@ -234,12 +179,29 @@
         }
 
         function formatTimeRemaining(ms) {
-            if (ms <= 0) return null;
+            if (ms <= 0) return "00:00:00";
             const totalSecs = Math.floor(ms / 1000);
             const hrs = Math.floor(totalSecs / 3600);
             const mins = Math.floor((totalSecs % 3600) / 60);
             const secs = totalSecs % 60;
             return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function startCheckinTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                const el = document.getElementById('checkin-timer');
+                if (!el || !currentUser) return;
+                const lastCheckInTime = currentUser.lastCheckInTimestamp || 0;
+                const now = Date.now();
+                const remaining = (24 * 60 * 60 * 1000) - (now - lastCheckInTime);
+                if (remaining <= 0) {
+                    clearInterval(timerInterval);
+                    render();
+                } else {
+                    el.innerText = formatTimeRemaining(remaining);
+                }
+            }, 1000);
         }
 
         function mostrarAviso() {
@@ -343,6 +305,9 @@
                 const checkInAvailable = (now - lastCheckInTime) >= (24 * 60 * 60 * 1000);
                 const checkInRemaining = (24 * 60 * 60 * 1000) - (now - lastCheckInTime);
 
+                const userPurchases = currentUser.purchases || {};
+                const activePlans = PRODUCTS.filter(p => (userPurchases[p.id] || 0) > 0);
+
                 mainContent = `
                     <div class="space-y-5">
                         <div class="relative overflow-hidden rounded-xl border border-cyan-500/30 bg-gradient-to-br from-slate-900 to-blue-950 p-4 border-glow">
@@ -387,6 +352,24 @@
                             </div>
                         </div>
 
+                        <!-- MIS PLANES ADQUIRIDOS -->
+                        <div class="bg-slate-900/90 p-4 rounded-xl border border-cyan-500/30 space-y-3">
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-emerald-400">Mis Planes Adquiridos (${activePlans.length})</h3>
+                            <div class="space-y-2">
+                                ${activePlans.map(p => `
+                                    <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 flex justify-between items-center text-xs">
+                                        <div>
+                                            <p class="font-bold text-white">${p.name}</p> <p class="text-[10px] text-slate-400">Diario: $${p.dailyYield.toLocaleString()} ARS • Plazo: ${p.days} días</p>
+                                        </div>
+                                        <span class="bg-emerald-500/20 text-emerald-300 font-bold px-2 py-1 rounded border border-emerald-500/40 text-[10px]">
+                                            ${userPurchases[p.id]} Activo(s)
+                                        </span>
+                                    </div>
+                                `).join('')}
+                                ${activePlans.length === 0 ? '<p class="text-xs text-slate-500 text-center py-1">Aún no tienes planes activos.</p>' : ''}
+                            </div>
+                        </div>
+
                         <div>
                             <div class="flex justify-between items-center mb-3">
                                 <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-400">Planes Disponibles</h3>
@@ -419,6 +402,9 @@
                         </div>
                     </div>
                 `;
+
+                if (!checkInAvailable) startCheckinTimer();
+
             } else if (currentView === 'referrals') {
                 const refCode = currentUser.refCode || 'CD-XXXXX';
                 const siteUrlWithRef = window.location.origin + window.location.pathname + '?ref=' + refCode;
@@ -626,22 +612,26 @@
                             </div>
                         </div>
 
-                        <!-- Lista de Usuarios y Saldos -->
+                        <!-- Lista de Usuarios, Saldos y Referidos -->
                         <div class="bg-slate-900/90 p-4 rounded-xl border border-slate-800 space-y-3">
                             <h4 class="font-bold text-white text-xs mb-3 uppercase">Gestión de Usuarios (${usersList.length})</h4>
                             <div class="space-y-3 max-h-[28rem] overflow-y-auto">
-                                ${usersList.map(u => `
-                                    <div class="bg-slate-950 p-3 rounded border border-slate-800 space-y-2">
-                                        <div class="break-all space-y-1">
-                                            <p class="font-bold text-white text-xs">${u.email}</p> <p class="text-[11px] text-cyan-300">Saldo: $${(u.balance || 0).toLocaleString()} ARS</p>
+                                ${usersList.map(u => {
+                                    const countRefs = usersList.filter(x => x.referredBy === u.refCode).length;
+                                    return `
+                                        <div class="bg-slate-950 p-3 rounded border border-slate-800 space-y-2">
+                                            <div class="break-all space-y-1">
+                                                <p class="font-bold text-white text-xs">${u.email}</p> <p class="text-[11px] text-cyan-300">Saldo Inversión: $${(u.balance || 0).toLocaleString()} ARS</p>
+                                                <p class="text-[11px] text-emerald-400">Referidos: <strong>${countRefs}</strong> \vert{} Saldo Referidos: <strong>$${(u.refBalance || 0).toLocaleString()} ARS</strong></p>
+                                            </div>
+                                            <div class="flex items-center gap-2 pt-1 border-t border-slate-900">
+                                                <input type="number" id="balanceInput_${u.id}" value="${u.balance || 0}" class="w-full bg-slate-900 text-cyan-300 font-bold p-2 rounded text-xs border border-slate-700">
+                                                <button onclick="setManualBalance('${u.email}', 'balanceInput_${u.id}')" class="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black px-3 py-2 rounded text-xs flex-shrink-0 uppercase">Guardar</button>
+                                                <button onclick="deleteUserAccount('${u.email}')" class="bg-rose-600 hover:bg-rose-500 text-white font-black px-3 py-2 rounded text-xs flex-shrink-0 uppercase">Eliminar</button>
+                                            </div>
                                         </div>
-                                        <div class="flex items-center gap-2 pt-1 border-t border-slate-900">
-                                            <input type="number" id="balanceInput_${u.id}" value="${u.balance || 0}" class="w-full bg-slate-900 text-cyan-300 font-bold p-2 rounded text-xs border border-slate-700">
-                                            <button onclick="setManualBalance('${u.email}', 'balanceInput_${u.id}')" class="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black px-3 py-2 rounded text-xs flex-shrink-0 uppercase">Guardar</button>
-                                            <button onclick="deleteUserAccount('${u.email}')" class="bg-rose-600 hover:bg-rose-500 text-white font-black px-3 py-2 rounded text-xs flex-shrink-0 uppercase">Eliminar</button>
-                                        </div>
-                                    </div>
-                                `).join('')}
+                                    `;
+                                }).join('')}
                             </div>
                         </div>
                     </div>
@@ -780,6 +770,7 @@
 
         function logout() {
             currentUser = null;
+            if (timerInterval) clearInterval(timerInterval);
             cerrarAviso();
             render();
         }
