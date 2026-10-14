@@ -3,32 +3,118 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CDINVERSIONES</title>
+    <title>CDINVERSIONES - Panel Oficial</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <style>
         body { background-color: #020617; color: #f8fafc; font-family: sans-serif; }
+        .glow-cyan { text-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
+        .border-glow { box-shadow: 0 0 15px rgba(56, 189, 248, 0.15); }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen">
     <div id="app" class="max-w-md mx-auto min-h-screen p-4 flex flex-col justify-center items-center">
-        <div class="text-center space-y-3">
-            <h1 class="text-xl font-bold text-cyan-400">CDINVERSIONES</h1>
-            <p class="text-xs text-slate-400">Cargando plataforma...</p>
-        </div>
+        <p class="text-cyan-400 font-bold text-sm tracking-widest animate-pulse">Cargando panel...</p>
     </div>
 
     <script>
         document.addEventListener("DOMContentLoaded", function() {
-            const app = document.getElementById('app');
-            app.innerHTML = `
-                <div class="w-full bg-slate-900 p-6 rounded-xl border border-cyan-500/30 text-center space-y-4">
-                    <h2 class="text-lg font-black text-cyan-400">Panel Oficial</h2>
-                    <p class="text-xs text-slate-300">La aplicación está lista. Si ves este mensaje, el sistema cargó correctamente.</p>
-                    <button onclick="location.reload()" class="w-full bg-cyan-500 text-slate-950 font-bold p-3 rounded-lg text-xs uppercase">Actualizar Vista</button>
-                </div>
-            `;
+            try {
+                const firebaseConfig = {
+                  apiKey: "AIzaSyAZdeugWNF6Ncb2nLZ04bEma529e0napZg",
+                  authDomain: "cdinversiones-7b8ec.firebaseapp.com",
+                  projectId: "cdinversiones-7b8ec",
+                  storageBucket: "cdinversiones-7b8ec.firebasestorage.app",
+                  messagingSenderId: "50098942707",
+                  appId: "1:50098942707:web:e3e0ccccaa2aa476b43d86"
+                };
+
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
+                }
+                const db = firebase.firestore();
+
+                const ADMIN_EMAIL = "cdinversiones2026@gmail.com";
+                const ADMIN_PASS = "somos.9";
+                let currentUser = null;
+
+                function showLogin() {
+                    const app = document.getElementById('app');
+                    app.className = "max-w-md mx-auto min-h-screen p-4 flex flex-col justify-center items-center";
+                    app.innerHTML = `
+                        <div class="bg-slate-900/90 p-6 rounded-2xl border border-cyan-500/30 border-glow w-full text-center">
+                            <h1 class="text-2xl font-black tracking-wider text-cyan-400 glow-cyan mb-1">CDINVERSIONES</h1>
+                            <p class="text-slate-400 text-xs mb-6">Plataforma de Inversión</p>
+                            <form id="loginForm" class="space-y-3 text-left">
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-300 mb-1 uppercase">Correo</label>
+                                    <input type="email" id="emailInput" required class="w-full bg-slate-950 text-white p-3 rounded-lg border border-slate-700 text-xs focus:outline-none focus:border-cyan-400">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-300 mb-1 uppercase">Contraseña</label>
+                                    <input type="password" id="passInput" required class="w-full bg-slate-950 text-white p-3 rounded-lg border border-slate-700 text-xs focus:outline-none focus:border-cyan-400">
+                                </div>
+                                <button type="submit" class="w-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black p-3 rounded-lg text-xs uppercase tracking-wider mt-2">Iniciar Sesión</button>
+                            </form>
+                        </div>
+                    `;
+
+                    document.getElementById('loginForm').onsubmit = async (e) => {
+                        e.preventDefault();
+                        const email = document.getElementById('emailInput').value.trim().toLowerCase();
+                        const pass = document.getElementById('passInput').value;
+
+                        if (email === ADMIN_EMAIL && pass === ADMIN_PASS) {
+                            currentUser = { email: ADMIN_EMAIL, balance: 0, isAdmin: true };
+                            showDashboard();
+                            return;
+                        }
+
+                        try {
+                            const doc = await db.collection('users').doc(email).get();
+                            if (!doc.exists || doc.data().password !== pass) {
+                                alert('Credenciales incorrectas');
+                                return;
+                            }
+                            currentUser = doc.data();
+                            showDashboard();
+                        } catch (err) {
+                            alert('Error al conectar con la base de datos.');
+                        }
+                    };
+                }
+
+                function showDashboard() {
+                    const app = document.getElementById('app');
+                    app.className = "max-w-md mx-auto min-h-screen flex flex-col justify-between relative bg-slate-950 pb-20";
+                    app.innerHTML = `
+                        <div>
+                            <div class="bg-slate-900 p-4 border-b border-slate-800 flex justify-between items-center sticky top-0 z-50">
+                                <div>
+                                    <h2 class="text-sm font-black text-cyan-400 tracking-wider">PANEL</h2>
+                                    <p class="text-[10px] text-slate-300">${currentUser.email}</p>
+                                </div>
+                                <button onclick="location.reload()" class="text-slate-400 hover:text-red-400 text-xs font-bold uppercase">Salir</button>
+                            </div>
+                            <div class="p-4 space-y-4">
+                                <div class="bg-gradient-to-r from-blue-900 to-cyan-900 rounded-2xl p-5 border border-cyan-500/40 text-white">
+                                    <p class="text-[10px] font-bold uppercase text-cyan-300">Saldo Disponible</p>
+                                    <h1 class="text-3xl font-black my-1">$${(currentUser.balance || 0).toLocaleString()} ARS</h1>
+                                </div>
+                                <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 text-center">
+                                    <p class="text-xs text-slate-300">¡Conexión exitosa! El panel se encuentra operativo.</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                showLogin();
+
+            } catch (err) {
+                document.getElementById('app').innerHTML = '<div class="text-rose-400 text-xs text-center p-4">Error crítico al iniciar la aplicación.</div>';
+            }
         });
     </script>
 </body>
