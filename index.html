@@ -148,18 +148,18 @@
         `;
 
         const PRODUCTS = [
-            { id: "flash_24hs", name: "⚡ Paquete Flash 24hs", price: 7000, days: 3, dailyYield: 4800, total: 14400, limit: 0, isFlash: true },
-            { id: "plan_1", name: "Plan Celular 5.000 ARS", price: 5000, days: 3, dailyYield: 2583, total: 7750, limit: 1 },
-            { id: "plan_2", name: "Plan Celular 10.000 ARS", price: 10000, days: 6, dailyYield: 2583, total: 15500, limit: 1 },
-            { id: "plan_3", name: "Plan Celular 16.000 ARS", price: 16000, days: 8, dailyYield: 3100, total: 24800, limit: 1 },
-            { id: "plan_4", name: "Plan Celular 20.000 ARS", price: 20000, days: 11, dailyYield: 2818, total: 31000, limit: 1 },
-            { id: "plan_5", name: "Plan Celular 28.000 ARS", price: 28000, days: 15, dailyYield: 2893, total: 43400, limit: 2 },
-            { id: "plan_6", name: "Plan Celular 36.000 ARS", price: 36000, days: 18, dailyYield: 3100, total: 55800, limit: 2 },
-            { id: "plan_7", name: "Plan Celular 45.000 ARS", price: 45000, days: 25, dailyYield: 2790, total: 69750, limit: 2 },
-            { id: "plan_8", name: "Plan Celular 60.000 ARS", price: 60000, days: 30, dailyYield: 3100, total: 93000, limit: 2 },
-            { id: "plan_9", name: "Plan Celular 75.000 ARS", price: 75000, days: 36, dailyYield: 3646, total: 131250, limit: 3 },
-            { id: "plan_10", name: "Plan Celular 100.000 ARS", price: 100000, days: 48, dailyYield: 3646, total: 175000, limit: 3 },
-            { id: "plan_11", name: "Plan Celular 150.000 ARS", price: 150000, days: 70, dailyYield: 3750, total: 262500, limit: 3 }
+            { id: "flash_24hs", oldId: 99, name: "⚡ Paquete Flash 24hs", price: 7000, days: 3, dailyYield: 4800, total: 14400, limit: 0, isFlash: true },
+            { id: "plan_1", oldId: 1, name: "Plan Celular 5.000 ARS", price: 5000, days: 3, dailyYield: 2583, total: 7750, limit: 1 },
+            { id: "plan_2", oldId: 2, name: "Plan Celular 10.000 ARS", price: 10000, days: 6, dailyYield: 2583, total: 15500, limit: 1 },
+            { id: "plan_3", oldId: 3, name: "Plan Celular 16.000 ARS", price: 16000, days: 8, dailyYield: 3100, total: 24800, limit: 1 },
+            { id: "plan_4", oldId: 4, name: "Plan Celular 20.000 ARS", price: 20000, days: 11, dailyYield: 2818, total: 31000, limit: 1 },
+            { id: "plan_5", oldId: 5, name: "Plan Celular 28.000 ARS", price: 28000, days: 15, dailyYield: 2893, total: 43400, limit: 2 },
+            { id: "plan_6", oldId: 6, name: "Plan Celular 36.000 ARS", price: 36000, days: 18, dailyYield: 3100, total: 55800, limit: 2 },
+            { id: "plan_7", oldId: 7, name: "Plan Celular 45.000 ARS", price: 45000, days: 25, dailyYield: 2790, total: 69750, limit: 2 },
+            { id: "plan_8", oldId: 8, name: "Plan Celular 60.000 ARS", price: 60000, days: 30, dailyYield: 3100, total: 93000, limit: 2 },
+            { id: "plan_9", oldId: 9, name: "Plan Celular 75.000 ARS", price: 75000, days: 36, dailyYield: 3646, total: 131250, limit: 3 },
+            { id: "plan_10", oldId: 10, name: "Plan Celular 100.000 ARS", price: 100000, days: 48, dailyYield: 3646, total: 175000, limit: 3 },
+            { id: "plan_11", oldId: 11, name: "Plan Celular 150.000 ARS", price: 150000, days: 70, dailyYield: 3750, total: 262500, limit: 3 }
         ];
 
         let currentUser = null;
@@ -169,6 +169,13 @@
         let rechargesList = [];
         let withdrawsList = [];
         let timerInterval = null;
+
+        function getPurchasedQty(purchasesDict, product) {
+            if (!purchasesDict) return 0;
+            const valNew = purchasesDict[product.id] || 0;
+            const valOld = product.oldId !== undefined ? (purchasesDict[product.oldId] || 0) : 0;
+            return valNew + valOld;
+        }
 
         function getUrlRefCode() {
             const urlParams = new URLSearchParams(window.location.search);
@@ -307,7 +314,7 @@
                 const checkInRemaining = (24 * 60 * 60 * 1000) - (now - lastCheckInTime);
 
                 const userPurchases = currentUser.purchases || {};
-                const activePlans = PRODUCTS.filter(p => (userPurchases[p.id] || 0) > 0);
+                const activePlans = PRODUCTS.filter(p => getPurchasedQty(userPurchases, p) > 0);
 
                 mainContent = `
                     <div class="space-y-5">
@@ -353,12 +360,12 @@
                             </div>
                         </div>
 
-                        <!-- MIS PLANES ADQUIRIDOS (CON RETORNO TOTAL) -->
+                        <!-- MIS PLANES ADQUIRIDOS (COMPATIBLE CON IDS VIEJOS Y NUEVOS) -->
                         <div class="bg-slate-900/90 p-4 rounded-xl border border-cyan-500/30 space-y-3">
                             <h3 class="text-xs font-bold uppercase tracking-wider text-emerald-400">Mis Planes Adquiridos (${activePlans.length})</h3>
                             <div class="space-y-2">
                                 ${activePlans.map(p => {
-                                    const qty = userPurchases[p.id];
+                                    const qty = getPurchasedQty(userPurchases, p);
                                     const totalAccumulatedReturn = p.total * qty;
 
                                     return `
@@ -384,9 +391,9 @@
 
                             <div class="space-y-3">
                                 ${PRODUCTS.map(p => {
-                                    const purchases = (currentUser.purchases && currentUser.purchases[p.id]) || 0;
+                                    const purchases = getPurchasedQty(currentUser.purchases, p);
                                     
-                                    // Si es el paquete flash y el usuario NO lo ha comprado, lo ocultamos de la tienda
+                                    // Si es el paquete flash y el usuario NO lo ha comprado previamente, no se muestra
                                     if (p.isFlash && purchases === 0) return '';
 
                                     const limitReached = purchases >= p.limit;
@@ -630,7 +637,7 @@
                                 ${usersList.map(u => {
                                     const countRefs = usersList.filter(x => x.referredBy === u.refCode).length;
                                     const uPurchases = u.purchases || {};
-                                    const uActivePlans = PRODUCTS.filter(p => (uPurchases[p.id] || 0) > 0);
+                                    const uActivePlans = PRODUCTS.filter(p => getPurchasedQty(uPurchases, p) > 0);
 
                                     return `
                                         <div class="bg-slate-950 p-3 rounded border border-slate-800 space-y-2">
@@ -643,12 +650,15 @@
                                                     <p class="text-[10px] text-slate-400 font-bold uppercase">Planes Activos:</p>
                                                     ${uActivePlans.length > 0 ? `
                                                         <ul class="text-[10px] text-slate-300 space-y-0.5 mt-0.5">
-                                                            ${uActivePlans.map(p => `
-                                                                <li class="flex justify-between bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
-                                                                    <span>• ${p.name}</span>
-                                                                    <strong class="text-cyan-400">${uPurchases[p.id]} unidad(es)</strong>
-                                                                </li>
-                                                            `).join('')}
+                                                            ${uActivePlans.map(p => {
+                                                                const qty = getPurchasedQty(uPurchases, p);
+                                                                return `
+                                                                    <li class="flex justify-between bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                                                                        <span>• ${p.name}</span>
+                                                                        <strong class="text-cyan-400">${qty} unidad(es)</strong>
+                                                                    </li>
+                                                                `;
+                                                            }).join('')}
                                                         </ul>
                                                     ` : `
                                                         <p class="text-[10px] text-slate-500 italic">Sin planes activos</p>
@@ -824,12 +834,15 @@
             const product = PRODUCTS.find(p => p.id === productId);
             if (!product) return alert('Plan no encontrado');
 
-            const purchases = (currentUser.purchases && currentUser.purchases[productId]) || 0;
+            const purchases = getPurchasedQty(currentUser.purchases, product);
 
             if (purchases >= product.limit) return alert('Límite de compra alcanzado para este plan');
             if ((currentUser.balance || 0) < product.price) return alert('Saldo insuficiente para adquirir este plan');
 
-            const updatedPurchases = { ...(currentUser.purchases || {}), [productId]: purchases + 1 };
+            const currentPurchases = currentUser.purchases || {};
+            const currentQtyNewKey = currentPurchases[product.id] || 0;
+
+            const updatedPurchases = { ...currentPurchases, [product.id]: currentQtyNewKey + 1 };
 
             await db.collection('users').doc(currentUser.email).update({
                 balance: currentUser.balance - product.price,
