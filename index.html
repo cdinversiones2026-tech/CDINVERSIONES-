@@ -322,6 +322,9 @@
                 return;
             }
 
+            // Verificar planes completados de inmediato al renderizar
+            checkCompletedPlans();
+
             let mainContent = '';
             const now = Date.now();
             const purchases = currentUser.purchases || {};
@@ -363,7 +366,7 @@
                             </div>
                         </div>
 
-                        <!-- PLANES ACTIVOS (INCLUYE PAQUETE FLASH ADQUIRIDO) -->
+                        <!-- PLANES ACTIVOS -->
                         <div class="bg-slate-900/90 p-4 rounded-xl border border-cyan-500/30 space-y-3">
                             <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-400">Planes Activos Ahora (${activePlans.length})</h3>
                             <div class="space-y-2">
@@ -401,7 +404,7 @@
                             </div>
                         </div>
 
-                        <!-- PLANES DISPONIBLES (EXCLUYE FLASH) -->
+                        <!-- PLANES DISPONIBLES -->
                         <div>
                             <div class="flex justify-between items-center mb-3">
                                 <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-400">Planes Disponibles</h3>
