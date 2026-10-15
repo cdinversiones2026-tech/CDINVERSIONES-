@@ -164,7 +164,7 @@
             let changed = false;
 
             currentUser.activePlans.forEach(plan => {
-                const durationMs = plan.durationHours ? (plan.durationHours * 3600 * 1000) : ((plan.days || 3) * 24 * 3600 * 1000);
+                const durationMs = plan.days ? (plan.days * 24 * 3600 * 1000) : ((plan.durationHours || 72) * 3600 * 1000);
                 if (now >= (plan.boughtAt + durationMs)) {
                     totalYield += plan.total;
                     finishedPlansList.push({ ...plan, finishedAt: now });
@@ -346,12 +346,12 @@
 
                                 <div class="grid-2">
                                     <div>
-                                        <label>Duración Plan (Horas)</label>
-                                        <input type="number" id="flashDurationHours" placeholder="48" required>
+                                        <label>Duración Plan (Días)</label>
+                                        <input type="number" id="flashDays" placeholder="3" required>
                                     </div>
                                     <div>
-                                        <label>Tiempo Compra (Minutos)</label>
-                                        <input type="number" id="flashBuyMinutes" placeholder="30" required>
+                                        <label>Tiempo Compra (Horas)</label>
+                                        <input type="number" id="flashBuyHours" placeholder="2" required>
                                     </div>
                                 </div>
 
@@ -366,7 +366,7 @@
                             return `
                                 <div class="card" style="border-color:${isExpired ? '#334155' : '#a855f7'}; opacity:${isExpired ? '0.6' : '1'};">
                                     <div class="flex-between">
-                                        <h4 style="font-size:12px; font-weight:700;">${fo.name}</h4> <span class="badge badge-flash">$${fo.price.toLocaleString()} ARS</span> </div> <p style="font-size:10px; color:#34d399; margin:4px 0;">Retorno: $${fo.total.toLocaleString()} ARS \vert{} Duración: ${fo.durationHours}hs</p>
+                                        <h4 style="font-size:12px; font-weight:700;">${fo.name}</h4> <span class="badge badge-flash">$${fo.price.toLocaleString()} ARS</span> </div> <p style="font-size:10px; color:#34d399; margin:4px 0;">Retorno: $${fo.total.toLocaleString()} ARS \vert{} Duración: ${fo.days} Días</p>
                                     <p style="font-size:10px; color:#fbbf24; font-family:monospace;">
                                         ${isExpired ? '❌ Tiempo de compra finalizado' : `⏳ Expira compra en: <span class="flash-buy-timer" data-buy-end="${fo.buyUntil}">${formatTimeRemaining(fo.buyUntil - now)}</span>`}
                                     </p>
@@ -406,7 +406,7 @@
                                     
                                     <div style="background:#020617; padding:8px; border-radius:6px; margin-bottom:8px;">
                                         <p style="color:#38bdf8; font-weight:700; font-size:10px; margin-bottom:4px;">📦 Planes Activos (${activePlans.length}):</p>${activePlans.map(p => {
-                                            const durationMs = p.durationHours ? (p.durationHours * 3600 * 1000) : ((p.days || 3) * 24 * 3600 * 1000);
+                                            const durationMs = p.days ? (p.days * 24 * 3600 * 1000) : ((p.durationHours || 72) * 3600 * 1000);
                                             const end = p.boughtAt + durationMs;
                                             const rem = end - now;
                                             const fechaCompra = new Date(p.boughtAt).toLocaleString();
@@ -529,7 +529,7 @@
                         ${activeFlashOffers.map(fo => `
                             <div class="card card-flash">
                                 <div class="flex-between">
-                                    <h4 style="font-size:13px; font-weight:800; color:#c084fc;">${fo.name}</h4> <span class="badge badge-flash">$${fo.price.toLocaleString()} ARS</span> </div> <p style="font-size:11px; color:#e9d5ff; margin-top:4px;">⚡ Retorno: <strong>$${fo.total.toLocaleString()} ARS</strong> \vert{} Duración: <strong>${fo.durationHours}hs</strong></p>
+                                    <h4 style="font-size:13px; font-weight:800; color:#c084fc;">${fo.name}</h4> <span class="badge badge-flash">$${fo.price.toLocaleString()} ARS</span> </div> <p style="font-size:11px; color:#e9d5ff; margin-top:4px;">⚡ Retorno: <strong>$${fo.total.toLocaleString()} ARS</strong> \vert{} Duración: <strong>${fo.days} Días</strong></p>
                                 <p style="font-size:11px; color:#fbbf24; font-family:monospace; margin-top:4px; font-weight:700;">
                                     ⏳ ¡Apresúrate! Expira en: <span class="flash-buy-timer" data-buy-end="${fo.buyUntil}">${formatTimeRemaining(fo.buyUntil - now)}</span>
                                 </p>
@@ -541,7 +541,7 @@
                         <div class="card">
                             <h3 style="font-size:12px; color:#38bdf8; font-weight:800; margin-bottom:10px;">PLANES ACTIVOS (${activePlans.length})</h3>
                             ${activePlans.map(p => {
-                                const durationMs = p.durationHours ? (p.durationHours * 3600 * 1000) : ((p.days || 3) * 24 * 3600 * 1000);
+                                const durationMs = p.days ? (p.days * 24 * 3600 * 1000) : ((p.durationHours || 72) * 3600 * 1000);
                                 const end = p.boughtAt + durationMs;
                                 return `
                                     <div style="background:#020617; padding:10px; border-radius:8px; margin-bottom:8px; font-size:11px; ${p.isFlash ? 'border:1px solid #a855f7;' : ''}">
@@ -566,7 +566,7 @@
 
                         <h3 style="font-size:12px; color:#38bdf8; font-weight:800; margin:14px 0 10px 0;">PLANES DISPONIBLES</h3>
                         ${availableProducts.map(p => {
-                            const tiempoTexto = p.durationHours ? `${p.durationHours} Horas` : `${p.days} Días`;
+                            const tiempoTexto = `${p.days} Días`;
                             return `
                                 <div class="card">
                                     <div class="flex-between">
@@ -781,19 +781,19 @@
             const name = document.getElementById('flashName').value.trim();
             const price = parseFloat(document.getElementById('flashPrice').value);
             const total = parseFloat(document.getElementById('flashTotal').value);
-            const durationHours = parseInt(document.getElementById('flashDurationHours').value);
-            const buyMinutes = parseInt(document.getElementById('flashBuyMinutes').value);
+            const days = parseInt(document.getElementById('flashDays').value);
+            const buyHours = parseFloat(document.getElementById('flashBuyHours').value);
 
-            if (!name || isNaN(price) || isNaN(total) || isNaN(durationHours) || isNaN(buyMinutes)) {
+            if (!name || isNaN(price) || isNaN(total) || isNaN(days) || isNaN(buyHours)) {
                 return alert('Por favor, completa todos los campos correctamente.');
             }
 
             const now = Date.now();
-            const buyUntil = now + (buyMinutes * 60 * 1000);
+            const buyUntil = now + (buyHours * 3600 * 1000);
 
             if (db) {
                 await db.collection('flash_offers').add({
-                    name, price, total, durationHours, buyUntil, createdAt: now
+                    name, price, total, days, buyUntil, createdAt: now
                 });
                 alert('¡Producto Flash publicado con éxito!');
                 document.getElementById('flashForm').reset();
@@ -840,8 +840,7 @@
                 id: product.id, 
                 name: product.name, 
                 total: product.total, 
-                durationHours: product.durationHours || null,
-                days: product.days || null,
+                days: product.days || 3,
                 isFlash: false,
                 boughtAt: Date.now()
             });
@@ -873,7 +872,7 @@
                 id: flashOffer.id,
                 name: flashOffer.name,
                 total: flashOffer.total,
-                durationHours: flashOffer.durationHours,
+                days: flashOffer.days,
                 isFlash: true,
                 boughtAt: now
             });
@@ -904,8 +903,7 @@
                 id: product.id,
                 name: product.name,
                 total: product.total,
-                durationHours: product.durationHours || null,
-                days: product.days || null,
+                days: product.days || 3,
                 isFlash: false,
                 boughtAt: Date.now()
             });
