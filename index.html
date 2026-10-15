@@ -363,7 +363,7 @@
                             </div>
                         </div>
 
-                        <!-- PLANES ACTIVOS -->
+                        <!-- PLANES ACTIVOS (INCLUYE PAQUETE FLASH ADQUIRIDO) -->
                         <div class="bg-slate-900/90 p-4 rounded-xl border border-cyan-500/30 space-y-3">
                             <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-400">Planes Activos Ahora (${activePlans.length})</h3>
                             <div class="space-y-2">
@@ -401,6 +401,7 @@
                             </div>
                         </div>
 
+                        <!-- PLANES DISPONIBLES (EXCLUYE FLASH) -->
                         <div>
                             <div class="flex justify-between items-center mb-3">
                                 <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-400">Planes Disponibles</h3>
@@ -512,17 +513,29 @@
                         
                         <div class="bg-slate-900/90 p-4 rounded-xl border border-slate-800 space-y-3">
                             <h4 class="font-bold text-white text-xs uppercase">Usuarios Registrados (${usersList.length})</h4>
-                            <div class="space-y-3 max-h-72 overflow-y-auto">
-                                ${usersList.map(u => `
-                                    <div class="bg-slate-950 p-3 rounded border border-slate-800 text-xs space-y-2">
-                                        <p class="font-bold text-white break-all">${u.email}</p> <p class="text-cyan-300">Saldo: <strong>$${(u.balance || 0).toLocaleString()} ARS</strong></p>
-                                        <div class="flex items-center gap-2 pt-1">
-                                            <input type="number" id="bal_${u.id}" value="${u.balance || 0}" class="w-full bg-slate-900 text-cyan-300 p-1.5 rounded border border-slate-700 text-xs">
-                                            <button onclick="setManualBalance('${u.email}', 'bal_${u.id}')" class="bg-cyan-500 text-slate-950 font-bold px-2.5 py-1.5 rounded text-[10px] uppercase">Guardar</button>
-                                            <button onclick="deleteUserAccount('${u.email}')" class="bg-rose-600 text-white font-bold px-2.5 py-1.5 rounded text-[10px] uppercase">Eliminar</button>
+                            <div class="space-y-3 max-h-[32rem] overflow-y-auto">
+                                ${usersList.map(u => {
+                                    const userReferralsCount = usersList.filter(refUser => refUser.referredBy === u.refCode).length;
+                                    const userRefBalance = u.refBalance || 0;
+                                    const activePlansList = u.activePlans || [];
+                                    const plansSummary = activePlansList.length > 0 
+                                        ? activePlansList.map(p => p.name).join(', ') 
+                                        : 'Sin planes activos';
+
+                                    return `
+                                        <div class="bg-slate-950 p-3.5 rounded-lg border border-slate-800 text-xs space-y-2">
+                                            <p class="font-bold text-white break-all text-sm">${u.email}</p>
+                                            <div class="grid grid-cols-2 gap-1 text-[11px] bg-slate-900/80 p-2 rounded border border-slate-800/80">
+                                                <p class="text-slate-300">👥 Referidos: <strong class="text-cyan-400">${userReferralsCount}</strong></p> <p class="text-slate-300">🎁 Saldo Ref.: <strong class="text-emerald-400">$${userRefBalance.toLocaleString()} ARS</strong></p>
+                                                <p class="col-span-2 text-slate-300 pt-1 border-t border-slate-800">📦 Plan Activo: <strong class="text-amber-400">${plansSummary}</strong></p> </div> <p class="text-cyan-300 pt-1">Saldo Principal: <strong>$${(u.balance || 0).toLocaleString()} ARS</strong></p>
+                                            <div class="flex items-center gap-2 pt-1">
+                                                <input type="number" id="bal_${u.id}" value="${u.balance || 0}" class="w-full bg-slate-900 text-cyan-300 p-1.5 rounded border border-slate-700 text-xs font-bold">
+                                                <button onclick="setManualBalance('${u.email}', 'bal_${u.id}')" class="bg-cyan-500 text-slate-950 font-black px-2.5 py-1.5 rounded text-[10px] uppercase">Guardar</button>
+                                                <button onclick="deleteUserAccount('${u.email}')" class="bg-rose-600 text-white font-black px-2.5 py-1.5 rounded text-[10px] uppercase">Eliminar</button>
+                                            </div>
                                         </div>
-                                    </div>
-                                `).join('')}
+                                    `;
+                                }).join('')}
                             </div>
                         </div>
 
