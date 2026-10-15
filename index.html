@@ -116,20 +116,11 @@
     <div id="app" class="max-w-md mx-auto min-h-screen flex flex-col justify-between relative bg-slate-950 border-x border-slate-800/60 pb-20"></div>
 
     <script>
-        const firebaseConfig = {
-          apiKey: "AIzaSyAZdeugWNF6Ncb2nLZ04bEma529e0napZg",
-          authDomain: "cdinversiones-7b8ec.firebaseapp.com",
-          projectId: "cdinversiones-7b8ec",
-          storageBucket: "cdinversiones-7b8ec.firebasestorage.app",
-          messagingSenderId: "50098942707",
-          appId: "1:50098942707:web:e3e0ccccaa2aa476b43d86"
-        };
+        window.addEventListener('DOMContentLoaded', () => {
+            initApp();
+        });
 
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
-        }
-        const db = firebase.firestore();
-
+        let db = null;
         const ADMIN_EMAIL = "cdinversiones2026@gmail.com";
         const ADMIN_PASS = "somos.9";
         const BANK_CBU = "0000013000032204321913";
@@ -169,6 +160,29 @@
         let rechargesList = [];
         let withdrawsList = [];
         let timerInterval = null;
+
+        function initApp() {
+            try {
+                const firebaseConfig = {
+                  apiKey: "AIzaSyAZdeugWNF6Ncb2nLZ04bEma529e0napZg",
+                  authDomain: "cdinversiones-7b8ec.firebaseapp.com",
+                  projectId: "cdinversiones-7b8ec",
+                  storageBucket: "cdinversiones-7b8ec.firebasestorage.app",
+                  messagingSenderId: "50098942707",
+                  appId: "1:50098942707:web:e3e0ccccaa2aa476b43d86"
+                };
+
+                if (typeof firebase !== 'undefined' && !firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
+                    db = firebase.firestore();
+                } else if (typeof firebase !== 'undefined') {
+                    db = firebase.firestore();
+                }
+            } catch (err) {
+                console.error("Error iniciando Firebase:", err);
+            }
+            render();
+        }
 
         function getUrlRefCode() {
             const urlParams = new URLSearchParams(window.location.search);
@@ -219,7 +233,7 @@
         }
 
         async function checkCompletedPlans() {
-            if (!currentUser || !currentUser.activePlans || currentUser.activePlans.length === 0) return;
+            if (!currentUser || !currentUser.activePlans || currentUser.activePlans.length === 0 || !db) return;
 
             const now = Date.now();
             let updatedPlans = [];
@@ -676,6 +690,8 @@
                 return;
             }
 
+            if (!db) return alert('Conectando a la base de datos... reintenta en un instante.');
+
             const ref = db.collection('users').doc(email);
             const doc = await ref.get();
 
@@ -702,6 +718,8 @@
         }
 
         function listenData() {
+            if (!db) return;
+
             db.collection('users').onSnapshot(snap => {
                 usersList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 if (currentUser) {
@@ -740,10 +758,12 @@
             currentUser.lastCheckInTimestamp = now;
 
             try {
-                await db.collection('users').doc(currentUser.email).update({
-                    balance: newBalance,
-                    lastCheckInTimestamp: now
-                });
+                if (db) {
+                    await db.collection('users').doc(currentUser.email).update({
+                        balance: newBalance,
+                        lastCheckInTimestamp: now
+                    });
+                }
                 alert('¡Check-in exitoso! Se han acreditado $100 ARS a tu saldo.');
                 render();
             } catch (err) {
@@ -772,11 +792,13 @@
                 boughtAt: Date.now()
             });
 
-            await db.collection('users').doc(currentUser.email).update({
-                balance: currentUser.balance - product.price,
-                purchases: { ...purchases, [product.id]: qty + 1 },
-                activePlans: activePlans
-            });
+            if (db) {
+                await db.collection('users').doc(currentUser.email).update({
+                    balance: currentUser.balance - product.price,
+                    purchases: { ...purchases, [product.id]: qty + 1 },
+                    activePlans: activePlans
+                });
+            }
             alert(`¡Plan ${product.name} adquirido con éxito!`);
         }
 
@@ -785,7 +807,9 @@
             const amount = parseFloat(document.getElementById('rechargeAmount').value);
             const proof = document.getElementById('proofUrl').value.trim();
             if (isNaN(amount) || amount < MIN_RECHARGE) return alert(`Mínimo $${MIN_RECHARGE}`);
-            await db.collection('recharges').add({ userEmail: currentUser.email, amount, proofUrl: proof, status: 'PENDING', date: new Date().toLocaleString() });
+            if (db) {
+                await db.collection('recharges').add({ userEmail: currentUser.email, amount, proofUrl: proof, status: 'PENDING', date: new Date().toLocaleString() });
+            }
             alert('Solicitud enviada.');
             setView('recharges');
         }
@@ -800,8 +824,10 @@
             const comision = monto * WITHDRAW_FEE;
             const montoNeto = monto - comision;
 
-            await db.collection('withdraws').add({ userEmail: currentUser.email, amount: monto, netAmount: montoNeto, cbu: userCbu, status: 'PENDING', date: new Date().toLocaleString() });
-            await db.collection('users').doc(currentUser.email).update({ balance: currentUser.balance - monto });
+            if (db) {
+                await db.collection('withdraws').add({ userEmail: currentUser.email, amount: monto, netAmount: montoNeto, cbu: userCbu, status: 'PENDING', date: new Date().toLocaleString() });
+                await db.collection('users').doc(currentUser.email).update({ balance: currentUser.balance - monto });
+            }
             alert('Retiro solicitado.');
             setView('withdraws');
         }
@@ -809,18 +835,19 @@
         async function setManualBalance(email, inputId) {
             const newBal = parseFloat(document.getElementById(inputId).value);
             if (isNaN(newBal)) return alert('Monto inválido');
-            await db.collection('users').doc(email).update({ balance: newBal });
+            if (db) await db.collection('users').doc(email).update({ balance: newBal });
             alert(`Saldo actualizado a $${newBal} ARS`);
         }
 
         async function deleteUserAccount(email) {
             if (confirm(`¿Eliminar la cuenta ${email}?`)) {
-                await db.collection('users').doc(email).delete();
+                if (db) await db.collection('users').doc(email).delete();
                 alert('Cuenta eliminada.');
             }
         }
 
         async function approveRecharge(id, email, amt) {
+            if (!db) return;
             const uRef = db.collection('users').doc(email);
             const d = await uRef.get();
             if (d.exists) await uRef.update({ balance: (d.data().balance || 0) + amt });
@@ -829,6 +856,7 @@
         }
 
         async function approveWithdraw(id) {
+            if (!db) return;
             await db.collection('withdraws').doc(id).update({ status: 'APPROVED' });
             alert('Retiro completado.');
         }
@@ -836,13 +864,15 @@
         async function rejectAndRefundWithdraw(id, email, amount) {
             if (confirm(`¿Seguro que deseas rechazar este retiro de $${amount} ARS y reembolsar el dinero al usuario?`)) {
                 try {
-                    const uRef = db.collection('users').doc(email);
-                    const d = await uRef.get();
-                    if (d.exists) {
-                        const currentBal = d.data().balance || 0;
-                        await uRef.update({ balance: currentBal + amount });
+                    if (db) {
+                        const uRef = db.collection('users').doc(email);
+                        const d = await uRef.get();
+                        if (d.exists) {
+                            const currentBal = d.data().balance || 0;
+                            await uRef.update({ balance: currentBal + amount });
+                        }
+                        await db.collection('withdraws').doc(id).update({ status: 'REJECTED' });
                     }
-                    await db.collection('withdraws').doc(id).update({ status: 'REJECTED' });
                     alert(`Retiro rechazado. Se le han devuelto $${amount} ARS a ${email}.`);
                 } catch (err) {
                     console.error("Error al reembolsar:", err);
@@ -850,9 +880,6 @@
                 }
             }
         }
-
-        // Inicializar app
-        render();
     </script>
 </body>
 </html>
