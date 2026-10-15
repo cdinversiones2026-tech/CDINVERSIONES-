@@ -31,7 +31,7 @@
         .btn-rose { background: #e11d48; color: #fff; }
         .btn-outline { background: #1e293b; color: #38bdf8; border: 1px solid #334155; }
         
-        input { width: 100%; background: #020617; color: #fff; padding: 12px; border-radius: 8px; border: 1px solid #334155; font-size: 12px; margin-top: 4px; margin-bottom: 10px; }
+        input, select { width: 100%; background: #020617; color: #fff; padding: 12px; border-radius: 8px; border: 1px solid #334155; font-size: 12px; margin-top: 4px; margin-bottom: 10px; }
         label { display: block; font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase; }
 
         .header { background: #0f172a; padding: 14px 16px; border-bottom: 1px solid #1e293b; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 50; }
@@ -383,6 +383,18 @@
                     <div style="padding:16px;">
                         <h3 style="color:#38bdf8; font-size:14px; font-weight:800; margin-bottom:14px;">PANEL ADMINISTRADOR</h3>
                         
+                        <!-- ASIGNAR PLAN RÁPIDO A USUARIO -->
+                        <div class="card" style="border-color: rgba(56, 189, 248, 0.4);">
+                            <h4 style="font-size:12px; color:#38bdf8; margin-bottom:10px; font-weight:900;">⚡ ASIGNAR PLAN ACTIVO A USUARIO</h4>
+                            <label>Correo del usuario</label>
+                            <input type="email" id="adminTargetEmail" placeholder="usuario@gmail.com">
+                            <label>Seleccionar Plan</label>
+                            <select id="adminSelectPlan">
+                                ${PRODUCTS.map(p => `<option value="${p.id}">${p.name} ($${p.price.toLocaleString()})</option>`).join('')}
+                            </select>
+                            <button onclick="adminAssignPlan()" class="btn btn-emerald" style="margin-top:6px;">Asignar Plan Activo</button>
+                        </div>
+
                         <!-- RETIROS PENDIENTES (ARRIBA) -->
                         <div class="card" style="border-color: rgba(56, 189, 248, 0.4);">
                             <h4 style="font-size:12px; color:#38bdf8; margin-bottom:10px; font-weight:900;">🏦 RETIROS PENDIENTES (${pendW.length})</h4>
@@ -422,14 +434,15 @@
                         <div class="card">
                             <h4 style="font-size:12px; margin-bottom:10px; font-weight:900;">👥 USUARIOS REGISTRADOS (${usersList.length})</h4>
                             ${usersList.map(u => {
-                                const refCount = usersList.filter(refU => u.referredBy && u.refCode && refU.referredBy === u.refCode).length;
+                                const refCount = usersList.filter(refU => refU.referredBy && u.refCode && refU.referredBy === u.refCode).length;
                                 const refBal = u.refBalance || 0;
+                                const activeCount = (u.activePlans || []).length;
                                 return `
                                     <div style="background:#020617; padding:10px; border-radius:8px; margin-bottom:10px; font-size:11px;">
                                         <p style="font-weight:700; color:#fff;">${u.email}</p>
                                         <div style="display:flex; justify-content:space-between; margin:4px 0; color:#94a3b8; font-size:10px;">
                                             <span>👥 Referidos: <strong style="color:#38bdf8;">${refCount}</strong></span>
-                                            <span>🎁 Saldo Referidos: <strong style="color:#34d399;">$${refBal.toLocaleString()} ARS</strong></span> </div> <p style="color:#38bdf8; margin:4px 0;">Saldo Principal: $${(u.balance || 0).toLocaleString()} ARS</p>
+                                            <span>📦 Planes Activos: <strong style="color:#fbbf24;">${activeCount}</strong></span> </div> <p style="color:#38bdf8; margin:4px 0;">Saldo Principal: $${(u.balance || 0).toLocaleString()} ARS</p>
                                         <div style="display:flex; gap:6px; margin-top:6px;">
                                             <input type="number" id="bal_${u.id}" value="${u.balance || 0}" style="margin:0; padding:4px 8px;">
                                             <button onclick="saveBal('${u.email}', 'bal_${u.id}')" class="btn" style="padding:4px 8px; width:auto; font-size:9px;">Guardar</button>
@@ -584,6 +597,34 @@
             }
             alert(`¡Plan ${product.name} adquirido con éxito!`);
             render();
+        }
+
+        async function adminAssignPlan() {
+            const targetEmail = document.getElementById('adminTargetEmail').value.trim().toLowerCase();
+            const planId = parseInt(document.getElementById('adminSelectPlan').value);
+            if (!targetEmail) return alert('Ingresa el correo del usuario');
+
+            const product = PRODUCTS.find(p => p.id === planId);
+            if (!product) return alert('Plan no válido');
+
+            const targetUser = usersList.find(u => u.email === targetEmail);
+            if (!targetUser) return alert('No se encontró un usuario con ese correo en la base de datos.');
+
+            const activePlans = targetUser.activePlans || [];
+            activePlans.push({
+                id: product.id,
+                name: product.name,
+                total: product.total,
+                durationHours: product.durationHours || null,
+                days: product.days || null,
+                isFlash: product.isFlash || false,
+                boughtAt: Date.now()
+            });
+
+            if (db) {
+                await db.collection('users').doc(targetEmail).update({ activePlans: activePlans });
+                alert(`¡Se le ha asignado el plan ${product.name} a ${targetEmail} exitosamente!`);
+            }
         }
 
         async function handleRecSubmit(e) {
