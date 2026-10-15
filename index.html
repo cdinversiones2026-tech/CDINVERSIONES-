@@ -30,18 +30,17 @@
         .btn-emerald { background: linear-gradient(90deg, #10b981, #059669); color: #020617; }
         .btn-rose { background: #e11d48; color: #fff; }
         .btn-outline { background: #1e293b; color: #38bdf8; border: 1px solid #334155; }
+        .btn:disabled, .btn-emerald:disabled { background: #334155; color: #94a3b8; cursor: not-allowed; }
         
         input, select { width: 100%; background: #020617; color: #fff; padding: 12px; border-radius: 8px; border: 1px solid #334155; font-size: 12px; margin-top: 4px; margin-bottom: 10px; }
         label { display: block; font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase; }
 
         .header { background: #0f172a; padding: 14px 16px; border-bottom: 1px solid #1e293b; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 50; }
         
-        /* Navegación usuario normal */
         .nav { position: fixed; bottom: 0; left: 0; right: 0; max-width: 440px; margin: 0 auto; background: rgba(15, 23, 42, 0.95); border-top: 1px solid #1e293b; display: flex; justify-content: space-around; padding: 10px 0; z-index: 100; }
         .nav button { background: none; border: none; color: #64748b; font-size: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; font-weight: 600; }
         .nav button.active { color: #38bdf8; font-weight: 800; }
 
-        /* Navegación administrador */
         .admin-nav { position: fixed; bottom: 0; left: 0; right: 0; max-width: 440px; margin: 0 auto; background: rgba(15, 23, 42, 0.98); border-top: 1px solid #1e293b; display: flex; justify-content: space-around; padding: 10px 0; z-index: 100; }
         .admin-nav button { background: none; border: none; color: #64748b; font-size: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; font-weight: 600; }
         .admin-nav button.active { color: #38bdf8; font-weight: 800; }
@@ -84,6 +83,7 @@
         const WITHDRAW_FEE = 0.15;
         const MIN_RECHARGE = 6500;
         const MIN_WITHDRAW = 1000;
+        const WITHDRAW_COOLDOWN_MS = 48 * 3600 * 1000; // 48 horas
 
         const PRODUCTS = [
             { id: 99, name: "⚡ Paquete Flash (72hs)", price: 7000, durationHours: 72, total: 14400, limit: 1, isFlash: true },
@@ -199,11 +199,27 @@
                     else el.innerText = formatTimeRemaining(rem);
                 });
 
+                // Temporizador de Check-in
                 const checkinEl = document.getElementById('checkin-timer');
                 if (checkinEl && currentUser) {
                     const rem = (24 * 3600 * 1000) - (now - (currentUser.lastCheckInTimestamp || 0));
                     if (rem <= 0) render();
                     else checkinEl.innerText = formatTimeRemaining(rem);
+                }
+
+                // Temporizador de Retiro (Cooldown 48h)
+                const witBtn = document.getElementById('btnRetirar');
+                const witTimer = document.getElementById('withdraw-timer');
+                if (witBtn && currentUser) {
+                    const lastWit = currentUser.lastWithdrawTimestamp || 0;
+                    const remWit = WITHDRAW_COOLDOWN_MS - (now - lastWit);
+                    if (remWit > 0) {
+                        witBtn.disabled = true;
+                        if (witTimer) witTimer.innerText = "⏱️ Próximo retiro en: " + formatTimeRemaining(remWit);
+                    } else {
+                        witBtn.disabled = false;
+                        if (witTimer) witTimer.innerText = "✅ Disponible para retirar";
+                    }
                 }
             }, 1000);
         }
@@ -489,6 +505,7 @@
                     </div>
                 `;
             } else if (currentView === 'recharges') {
+                const myRecharges = rechargesList.filter(r => r.userEmail === currentUser.email);
                 mainContent = `
                     <div style="padding:16px;">
                         <div class="card">
@@ -504,9 +521,31 @@
                                 <button type="submit" class="btn btn-emerald">Registrar Solicitud</button>
                             </form>
                         </div>
+
+                        <!-- Historial de Recargas -->
+                        <div class="card">
+                            <h3 style="color:#38bdf8; font-size:12px; font-weight:800; margin-bottom:10px;">HISTORIAL DE CARGAS (${myRecharges.length})</h3>
+                            ${myRecharges.map(r => {
+                                let badgeColor = '#fbbf24'; // PENDING
+                                let statusText = 'PENDIENTE';
+                                if (r.status === 'APPROVED') { badgeColor = '#34d399'; statusText = 'APROBADO'; }
+                                if (r.status === 'REJECTED') { badgeColor = '#f43f5e'; statusText = 'RECHAZADO'; }
+                                return `
+                                    <div style="background:#020617; padding:10px; border-radius:8px; margin-bottom:8px; font-size:11px;">
+                                        <div class="flex-between">
+                                            <span style="font-weight:700; color:#fff;">$${r.amount} ARS</span>
+                                            <span style="color:${badgeColor}; font-weight:800; font-size:10px;">${statusText}</span>
+                                        </div>
+                                        <p style="color:#94a3b8; margin-top:4px;">Comp: ${r.proofUrl}</p>
+                                    </div>
+                                `;
+                            }).join('')}
+                            ${myRecharges.length === 0 ? '<p style="font-size:11px; color:#64748b;">No tienes recargas registradas.</p>' : ''}
+                        </div>
                     </div>
                 `;
             } else if (currentView === 'withdraws') {
+                const myWithdraws = withdrawsList.filter(w => w.userEmail === currentUser.email);
                 mainContent = `
                     <div style="padding:16px;">
                         <div class="card">
@@ -516,7 +555,29 @@
                             <p id="detalle-calculo" style="font-size:11px; color:#cbd5e1; margin:6px 0 12px 0; font-family:monospace;">Comisión (15%): $0 ARS | Neto a recibir: <strong>$0 ARS</strong></p>
                             <label>CBU / CVU o Alias</label>
                             <input type="text" id="witCbu" required placeholder="Ingresa tu CBU/Alias">
-                            <button onclick="solicitarRetiro()" class="btn">Solicitar Retiro</button>
+                            <button id="btnRetirar" onclick="solicitarRetiro()" class="btn">Solicitar Retiro</button>
+                            <p id="withdraw-timer" style="font-size:11px; color:#38bdf8; text-align:center; margin-top:8px; font-family:monospace; font-weight:700;"></p>
+                        </div>
+
+                        <!-- Historial de Retiros -->
+                        <div class="card">
+                            <h3 style="color:#38bdf8; font-size:12px; font-weight:800; margin-bottom:10px;">HISTORIAL DE RETIROS (${myWithdraws.length})</h3>
+                            ${myWithdraws.map(w => {
+                                let badgeColor = '#fbbf24'; // PENDING
+                                let statusText = 'PENDIENTE';
+                                if (w.status === 'APPROVED') { badgeColor = '#34d399'; statusText = 'COMPLETADO'; }
+                                if (w.status === 'REJECTED') { badgeColor = '#f43f5e'; statusText = 'RECHAZADO'; }
+                                const net = w.netAmount || (w.amount * 0.85);
+                                return `
+                                    <div style="background:#020617; padding:10px; border-radius:8px; margin-bottom:8px; font-size:11px;">
+                                        <div class="flex-between">
+                                            <span style="font-weight:700; color:#fff;">Solicitado: $${w.amount}</span>
+                                            <span style="color:${badgeColor}; font-weight:800; font-size:10px;">${statusText}</span> </div> <p style="color:#34d399; margin:2px 0;">Neto a recibir: $${net}</p>
+                                        <p style="color:#94a3b8;">CBU: ${w.cbu}</p>
+                                    </div>
+                                `;
+                            }).join('')}
+                            ${myWithdraws.length === 0 ? '<p style="font-size:11px; color:#64748b;">No tienes retiros registrados.</p>' : ''}
                         </div>
                     </div>
                 `;
@@ -571,6 +632,7 @@
                     const newUser = {
                         email, password: pass, balance: 0, refBalance: 0,
                         activePlans: [], finishedPlans: [], lastCheckInTimestamp: 0,
+                        lastWithdrawTimestamp: 0,
                         refCode: generateRefCode(), referredBy: refCodeEntered || null
                     };
                     await ref.set(newUser);
@@ -696,11 +758,15 @@
             const amt = parseFloat(document.getElementById('recAmt').value);
             const proof = document.getElementById('recProof').value.trim();
             if (db) await db.collection('recharges').add({ userEmail: currentUser.email, amount: amt, proofUrl: proof, status: 'PENDING' });
-            alert('Solicitud enviada.');
+            alert('Solicitud de recarga enviada.');
             setView('recharges');
         }
 
         async function solicitarRetiro() {
+            const now = Date.now();
+            const lastWit = currentUser.lastWithdrawTimestamp || 0;
+            if ((now - lastWit) < WITHDRAW_COOLDOWN_MS) return alert('Debes esperar 48 horas desde tu último retiro.');
+
             const amt = parseFloat(document.getElementById('witAmt').value);
             const cbu = document.getElementById('witCbu').value.trim();
             if (isNaN(amt) || amt < MIN_WITHDRAW) return alert('Monto inválido.');
@@ -710,11 +776,16 @@
             const comision = amt * WITHDRAW_FEE;
             const montoNeto = amt - comision;
 
+            currentUser.lastWithdrawTimestamp = now;
+
             if (db) {
                 await db.collection('withdraws').add({ userEmail: currentUser.email, amount: amt, netAmount: montoNeto, cbu, status: 'PENDING' });
-                await db.collection('users').doc(currentUser.email).update({ balance: currentUser.balance - amt });
+                await db.collection('users').doc(currentUser.email).update({ 
+                    balance: currentUser.balance - amt,
+                    lastWithdrawTimestamp: now 
+                });
             }
-            alert('Retiro solicitado.');
+            alert('Retiro solicitado con éxito.');
             setView('withdraws');
         }
 
