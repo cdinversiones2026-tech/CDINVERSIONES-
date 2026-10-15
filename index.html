@@ -26,11 +26,13 @@
 
         /* UI Components */
         .card { background: #0f172a; border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+        .card-flash { background: linear-gradient(135deg, #1e1b4b, #311042); border: 1px solid #a855f7; box-shadow: 0 0 15px rgba(168, 85, 247, 0.3); }
         .btn { width: 100%; background: linear-gradient(90deg, #38bdf8, #2563eb); color: #020617; border: none; padding: 12px; font-weight: 900; border-radius: 8px; cursor: pointer; text-transform: uppercase; font-size: 12px; }
         .btn-emerald { background: linear-gradient(90deg, #10b981, #059669); color: #020617; }
         .btn-rose { background: #e11d48; color: #fff; }
+        .btn-purple { background: linear-gradient(90deg, #a855f7, #6b21a8); color: #fff; }
         .btn-outline { background: #1e293b; color: #38bdf8; border: 1px solid #334155; }
-        .btn:disabled, .btn-emerald:disabled { background: #334155; color: #94a3b8; cursor: not-allowed; }
+        .btn:disabled { background: #334155; color: #94a3b8; cursor: not-allowed; }
         
         input, select { width: 100%; background: #020617; color: #fff; padding: 12px; border-radius: 8px; border: 1px solid #334155; font-size: 12px; margin-top: 4px; margin-bottom: 10px; }
         label { display: block; font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase; }
@@ -41,14 +43,15 @@
         .nav button { background: none; border: none; color: #64748b; font-size: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; font-weight: 600; }
         .nav button.active { color: #38bdf8; font-weight: 800; }
 
-        .admin-nav { position: fixed; bottom: 0; left: 0; right: 0; max-width: 440px; margin: 0 auto; background: rgba(15, 23, 42, 0.98); border-top: 1px solid #1e293b; display: flex; justify-content: space-around; padding: 10px 0; z-index: 100; }
-        .admin-nav button { background: none; border: none; color: #64748b; font-size: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; font-weight: 600; }
-        .admin-nav button.active { color: #38bdf8; font-weight: 800; }
+        .admin-nav { position: fixed; bottom: 0; left: 0; right: 0; max-width: 440px; margin: 0 auto; background: rgba(15, 23, 42, 0.98); border-top: 1px solid #1e293b; display: flex; justify-content: space-around; padding: 8px 0; z-index: 100; }
+        .admin-nav button { background: none; border: none; color: #64748b; font-size: 9px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; font-weight: 600; }
+        .admin-nav button.active { color: #a855f7; font-weight: 800; }
 
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
         .flex-between { display: flex; justify-content: space-between; align-items: center; }
         .badge { background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; border: 1px solid rgba(56, 189, 248, 0.3); }
+        .badge-flash { background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.5); }
     </style>
 </head>
 <body>
@@ -83,10 +86,9 @@
         const WITHDRAW_FEE = 0.15;
         const MIN_RECHARGE = 6500;
         const MIN_WITHDRAW = 1000;
-        const WITHDRAW_COOLDOWN_MS = 48 * 3600 * 1000; // 48 horas
+        const WITHDRAW_COOLDOWN_MS = 48 * 3600 * 1000;
 
         const PRODUCTS = [
-            { id: 99, name: "⚡ Paquete Flash (72hs)", price: 7000, durationHours: 72, total: 14400, limit: 1, isFlash: true },
             { id: 1, name: "Plan Celular 5.000 ARS", price: 5000, days: 3, total: 7750, limit: 1 },
             { id: 2, name: "Plan Celular 10.000 ARS", price: 10000, days: 6, total: 15500, limit: 1 },
             { id: 3, name: "Plan Celular 16.000 ARS", price: 16000, days: 8, total: 24800, limit: 1 },
@@ -107,6 +109,7 @@
         let usersList = [];
         let rechargesList = [];
         let withdrawsList = [];
+        let flashOffersList = [];
         let timerInterval = null;
 
         function initFirebase() {
@@ -197,6 +200,16 @@
                     const rem = end - now;
                     if (rem <= 0) el.innerText = "¡Completado!";
                     else el.innerText = formatTimeRemaining(rem);
+                });
+
+                document.querySelectorAll('.flash-buy-timer').forEach(el => {
+                    const buyEnd = parseInt(el.getAttribute('data-buy-end'));
+                    const rem = buyEnd - now;
+                    if (rem <= 0) {
+                        render(); 
+                    } else {
+                        el.innerText = formatTimeRemaining(rem);
+                    }
                 });
 
                 const checkinEl = document.getElementById('checkin-timer');
@@ -312,6 +325,57 @@
                         `).join('')}
                         ${pendR.length === 0 ? '<p style="font-size:12px; color:#64748b; text-align:center; margin-top:40px;">No hay solicitudes de cargas pendientes.</p>' : ''}
                     `;
+                } else if (adminView === 'flash') {
+                    adminContent = `
+                        <h3 style="color:#a855f7; font-size:14px; font-weight:800; margin-bottom:14px;">⚡ CREAR OFERTA FLASH</h3>
+                        <div class="card card-flash">
+                            <form id="flashForm">
+                                <label>Nombre del Producto Flash</label>
+                                <input type="text" id="flashName" placeholder="Ej: ⚡ Paquete Especial Flash" required>
+                                
+                                <div class="grid-2">
+                                    <div>
+                                        <label>Precio ($ ARS)</label>
+                                        <input type="number" id="flashPrice" placeholder="10000" required>
+                                    </div>
+                                    <div>
+                                        <label>Retorno Total ($ ARS)</label>
+                                        <input type="number" id="flashTotal" placeholder="20000" required>
+                                    </div>
+                                </div>
+
+                                <div class="grid-2">
+                                    <div>
+                                        <label>Duración Plan (Horas)</label>
+                                        <input type="number" id="flashDurationHours" placeholder="48" required>
+                                    </div>
+                                    <div>
+                                        <label>Tiempo Compra (Minutos)</label>
+                                        <input type="number" id="flashBuyMinutes" placeholder="30" required>
+                                    </div>
+                                </div>
+
+                                <button type="submit" class="btn btn-purple" style="margin-top:8px;">🚀 Publicar Producto Flash</button>
+                            </form>
+                        </div>
+
+                        <h4 style="color:#c084fc; font-size:12px; font-weight:800; margin:16px 0 10px 0;">OFERTAS FLASH ACTIVAS/HISTORIAL</h4>
+                        ${flashOffersList.map(fo => {
+                            const now = Date.now();
+                            const isExpired = now >= fo.buyUntil;
+                            return `
+                                <div class="card" style="border-color:${isExpired ? '#334155' : '#a855f7'}; opacity:${isExpired ? '0.6' : '1'};">
+                                    <div class="flex-between">
+                                        <h4 style="font-size:12px; font-weight:700;">${fo.name}</h4> <span class="badge badge-flash">$${fo.price.toLocaleString()} ARS</span> </div> <p style="font-size:10px; color:#34d399; margin:4px 0;">Retorno: $${fo.total.toLocaleString()} ARS \vert{} Duración: ${fo.durationHours}hs</p>
+                                    <p style="font-size:10px; color:#fbbf24; font-family:monospace;">
+                                        ${isExpired ? '❌ Tiempo de compra finalizado' : `⏳ Expira compra en: <span class="flash-buy-timer" data-buy-end="${fo.buyUntil}">${formatTimeRemaining(fo.buyUntil - now)}</span>`}
+                                    </p>
+                                    <button onclick="deleteFlashOffer('${fo.id}')" class="btn btn-rose" style="padding:4px; font-size:9px; margin-top:8px;">Eliminar Oferta</button>
+                                </div>
+                            `;
+                        }).join('')}
+                        ${flashOffersList.length === 0 ? '<p style="font-size:11px; color:#64748b; text-align:center;">No hay ofertas flash creadas.</p>' : ''}
+                    `;
                 } else if (adminView === 'users') {
                     adminContent = `
                         <h3 style="color:#38bdf8; font-size:14px; font-weight:800; margin-bottom:14px;">👥 GESTIÓN DE USUARIOS (${usersList.length})</h3>
@@ -381,19 +445,27 @@
                     </div>
                     <div class="admin-nav">
                         <button onclick="setAdminView('withdraws')" class="${adminView === 'withdraws' ? 'active' : ''}">
-                            <span style="font-size:16px;">🏦</span>
+                            <span style="font-size:14px;">🏦</span>
                             <span>Retiros (${pendW.length})</span>
                         </button>
                         <button onclick="setAdminView('recharges')" class="${adminView === 'recharges' ? 'active' : ''}">
-                            <span style="font-size:16px;">💳</span>
+                            <span style="font-size:14px;">💳</span>
                             <span>Cargas (${pendR.length})</span>
                         </button>
+                        <button onclick="setAdminView('flash')" class="${adminView === 'flash' ? 'active' : ''}">
+                            <span style="font-size:14px;">⚡</span>
+                            <span>Prod. Flash</span>
+                        </button>
                         <button onclick="setAdminView('users')" class="${adminView === 'users' ? 'active' : ''}">
-                            <span style="font-size:16px;">👥</span>
+                            <span style="font-size:14px;">👥</span>
                             <span>Usuarios</span>
                         </button>
                     </div>
                 `;
+
+                const ff = document.getElementById('flashForm');
+                if (ff) ff.onsubmit = handleCreateFlash;
+
                 startLiveTimers();
                 return;
             }
@@ -406,14 +478,20 @@
             if (currentView === 'home') {
                 const activePlans = currentUser.activePlans || [];
                 const finishedPlans = currentUser.finishedPlans || [];
-                const hasActiveFlash = activePlans.some(p => p.isFlash);
 
-                // FILTRAR PRODUCTOS: Excluir los que el usuario ya compró (activos o terminados)
+                // FILTRAR OFERTAS FLASH DISPONIBLES (Que no hayan caducado y que el usuario no las haya comprado aún)
+                const activeFlashOffers = flashOffersList.filter(fo => {
+                    const buyExpired = now >= fo.buyUntil;
+                    const yaCompradoActivo = activePlans.some(ap => ap.id === fo.id);
+                    const yaCompradoTerminado = finishedPlans.some(fp => fp.id === fo.id);
+                    return !buyExpired && !yaCompradoActivo && !yaCompradoTerminado;
+                });
+
+                // FILTRAR PLANES NORMALES DISPONIBLES
                 const availableProducts = PRODUCTS.filter(p => {
                     const yaCompradoActivo = activePlans.some(ap => ap.id === p.id);
                     const yaCompradoTerminado = finishedPlans.some(fp => fp.id === p.id);
-                    if (yaCompradoActivo || yaCompradoTerminado) return false;
-                    return !p.isFlash || hasActiveFlash;
+                    return !yaCompradoActivo && !yaCompradoTerminado;
                 });
 
                 const lastCheckIn = currentUser.lastCheckInTimestamp || 0;
@@ -447,6 +525,18 @@
                             </div>
                         </div>
 
+                        <!-- OFERTAS FLASH DISPONIBLES EN TIEMPO REAL -->
+                        ${activeFlashOffers.map(fo => `
+                            <div class="card card-flash">
+                                <div class="flex-between">
+                                    <h4 style="font-size:13px; font-weight:800; color:#c084fc;">${fo.name}</h4> <span class="badge badge-flash">$${fo.price.toLocaleString()} ARS</span> </div> <p style="font-size:11px; color:#e9d5ff; margin-top:4px;">⚡ Retorno: <strong>$${fo.total.toLocaleString()} ARS</strong> \vert{} Duración: <strong>${fo.durationHours}hs</strong></p>
+                                <p style="font-size:11px; color:#fbbf24; font-family:monospace; margin-top:4px; font-weight:700;">
+                                    ⏳ ¡Apresúrate! Expira en: <span class="flash-buy-timer" data-buy-end="${fo.buyUntil}">${formatTimeRemaining(fo.buyUntil - now)}</span>
+                                </p>
+                                <button onclick="buyFlashProduct('${fo.id}')" class="btn btn-purple" style="margin-top:10px; font-size:11px;">⚡ Comprar Oferta Flash</button>
+                            </div>
+                        `).join('')}
+
                         <!-- Planes Activos -->
                         <div class="card">
                             <h3 style="font-size:12px; color:#38bdf8; font-weight:800; margin-bottom:10px;">PLANES ACTIVOS (${activePlans.length})</h3>
@@ -454,8 +544,8 @@
                                 const durationMs = p.durationHours ? (p.durationHours * 3600 * 1000) : ((p.days || 3) * 24 * 3600 * 1000);
                                 const end = p.boughtAt + durationMs;
                                 return `
-                                    <div style="background:#020617; padding:10px; border-radius:8px; margin-bottom:8px; font-size:11px;">
-                                        <p style="font-weight:700; color:#fff;">${p.name}</p> <p style="color:#34d399; margin:2px 0;">Retorno: $${p.total.toLocaleString()} ARS</p>
+                                    <div style="background:#020617; padding:10px; border-radius:8px; margin-bottom:8px; font-size:11px; ${p.isFlash ? 'border:1px solid #a855f7;' : ''}">
+                                        <p style="font-weight:700; color:${p.isFlash ? '#c084fc' : '#fff'};">${p.name}</p> <p style="color:#34d399; margin:2px 0;">Retorno: $${p.total.toLocaleString()} ARS</p>
                                         <p style="color:#fbbf24; font-family:monospace;">⏳ Restante: <span class="plan-timer" data-end="${end}">${formatTimeRemaining(end - now)}</span></p>
                                     </div>
                                 `;
@@ -488,7 +578,6 @@
                                 </div>
                             `;
                         }).join('')}
-                        ${availableProducts.length === 0 ? '<p style="font-size:11px; color:#64748b; text-align:center;">Has adquirido todos los planes disponibles.</p>' : ''}
                     </div>
                 `;
             } else if (currentView === 'referrals') {
@@ -681,6 +770,41 @@
                 withdrawsList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 render();
             });
+            db.collection('flash_offers').onSnapshot(snap => {
+                flashOffersList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                render();
+            });
+        }
+
+        async function handleCreateFlash(e) {
+            e.preventDefault();
+            const name = document.getElementById('flashName').value.trim();
+            const price = parseFloat(document.getElementById('flashPrice').value);
+            const total = parseFloat(document.getElementById('flashTotal').value);
+            const durationHours = parseInt(document.getElementById('flashDurationHours').value);
+            const buyMinutes = parseInt(document.getElementById('flashBuyMinutes').value);
+
+            if (!name || isNaN(price) || isNaN(total) || isNaN(durationHours) || isNaN(buyMinutes)) {
+                return alert('Por favor, completa todos los campos correctamente.');
+            }
+
+            const now = Date.now();
+            const buyUntil = now + (buyMinutes * 60 * 1000);
+
+            if (db) {
+                await db.collection('flash_offers').add({
+                    name, price, total, durationHours, buyUntil, createdAt: now
+                });
+                alert('¡Producto Flash publicado con éxito!');
+                document.getElementById('flashForm').reset();
+            }
+        }
+
+        async function deleteFlashOffer(id) {
+            if (confirm('¿Eliminar esta oferta flash?') && db) {
+                await db.collection('flash_offers').doc(id).delete();
+                alert('Oferta eliminada.');
+            }
         }
 
         async function handleCheckIn() {
@@ -718,7 +842,7 @@
                 total: product.total, 
                 durationHours: product.durationHours || null,
                 days: product.days || null,
-                isFlash: product.isFlash || false,
+                isFlash: false,
                 boughtAt: Date.now()
             });
 
@@ -732,6 +856,35 @@
                 currentUser.activePlans = activePlans;
             }
             alert(`¡Plan ${product.name} adquirido con éxito!`);
+            render();
+        }
+
+        async function buyFlashProduct(flashId) {
+            const flashOffer = flashOffersList.find(f => f.id === flashId);
+            if (!flashOffer) return;
+
+            const now = Date.now();
+            if (now >= flashOffer.buyUntil) return alert('El tiempo para comprar esta oferta ha expirado.');
+
+            if ((currentUser.balance || 0) < flashOffer.price) return alert('Saldo insuficiente.');
+
+            const activePlans = currentUser.activePlans || [];
+            activePlans.push({
+                id: flashOffer.id,
+                name: flashOffer.name,
+                total: flashOffer.total,
+                durationHours: flashOffer.durationHours,
+                isFlash: true,
+                boughtAt: now
+            });
+
+            if (db) {
+                await db.collection('users').doc(currentUser.email).update({
+                    balance: currentUser.balance - flashOffer.price,
+                    activePlans: activePlans
+                });
+            }
+            alert(`¡Oferta Flash ${flashOffer.name} adquirida con éxito!`);
             render();
         }
 
@@ -753,7 +906,7 @@
                 total: product.total,
                 durationHours: product.durationHours || null,
                 days: product.days || null,
-                isFlash: product.isFlash || false,
+                isFlash: false,
                 boughtAt: Date.now()
             });
 
