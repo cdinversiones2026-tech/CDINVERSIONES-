@@ -360,7 +360,7 @@
                             </div>
                         </div>
 
-                        <!-- MIS PLANES ADQUIRIDOS (COMPATIBLE CON IDS VIEJOS Y NUEVOS) -->
+                        <!-- MIS PLANES ADQUIRIDOS -->
                         <div class="bg-slate-900/90 p-4 rounded-xl border border-cyan-500/30 space-y-3">
                             <h3 class="text-xs font-bold uppercase tracking-wider text-emerald-400">Mis Planes Adquiridos (${activePlans.length})</h3>
                             <div class="space-y-2">
@@ -393,7 +393,7 @@
                                 ${PRODUCTS.map(p => {
                                     const purchases = getPurchasedQty(currentUser.purchases, p);
                                     
-                                    // Si es el paquete flash y el usuario NO lo ha comprado previamente, no se muestra
+                                    // Ocultar paquete flash si el usuario no lo compró
                                     if (p.isFlash && purchases === 0) return '';
 
                                     const limitReached = purchases >= p.limit;
