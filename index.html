@@ -43,8 +43,6 @@
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
         .flex-between { display: flex; justify-content: space-between; align-items: center; }
         .badge { background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; border: 1px solid rgba(56, 189, 248, 0.3); }
-        .badge-green { background: rgba(16, 185, 129, 0.15); color: #34d399; border-color: rgba(16, 185, 129, 0.3); }
-        .badge-amber { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border-color: rgba(245, 158, 11, 0.3); }
     </style>
 </head>
 <body>
@@ -95,6 +93,7 @@
         let usersList = [];
         let rechargesList = [];
         let withdrawsList = [];
+        let timerInterval = null;
 
         function initFirebase() {
             try {
@@ -124,19 +123,80 @@
             return 'CD-' + Math.random().toString(36).substring(2, 7).toUpperCase();
         }
 
+        function formatTimeRemaining(ms) {
+            if (ms <= 0) return "00:00:00";
+            const totalSecs = Math.floor(ms / 1000);
+            const hrs = Math.floor(totalSecs / 3600);
+            const mins = Math.floor((totalSecs % 3600) / 60);
+            const secs = totalSecs % 60;
+            return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
         function mostrarAviso() { document.getElementById("modalAviso").style.display = "flex"; }
         function cerrarAviso() { document.getElementById("modalAviso").style.display = "none"; }
         function setView(v) { currentView = v; render(); }
         function logout() { currentUser = null; render(); }
+
+        function checkCompletedPlans() {
+            if (!currentUser || !currentUser.activePlans || currentUser.activePlans.length === 0 || !db) return;
+            const now = Date.now();
+            let updatedPlans = [];
+            let finishedPlansList = currentUser.finishedPlans || [];
+            let totalYield = 0;
+            let changed = false;
+
+            currentUser.activePlans.forEach(plan => {
+                const durationMs = plan.durationHours ? (plan.durationHours * 3600 * 1000) : ((plan.days || 3) * 24 * 3600 * 1000);
+                if (now >= (plan.boughtAt + durationMs)) {
+                    totalYield += plan.total;
+                    finishedPlansList.push({ ...plan, finishedAt: now });
+                    changed = true;
+                } else {
+                    updatedPlans.push(plan);
+                }
+            });
+
+            if (changed) {
+                const newBal = (currentUser.balance || 0) + totalYield;
+                currentUser.balance = newBal;
+                currentUser.activePlans = updatedPlans;
+                currentUser.finishedPlans = finishedPlansList;
+                db.collection('users').doc(currentUser.email).update({
+                    balance: newBal,
+                    activePlans: updatedPlans,
+                    finishedPlans: finishedPlansList
+                });
+            }
+        }
+
+        function startLiveTimers() {
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                checkCompletedPlans();
+                const now = Date.now();
+                
+                document.querySelectorAll('.plan-timer').forEach(el => {
+                    const end = parseInt(el.getAttribute('data-end'));
+                    const rem = end - now;
+                    if (rem <= 0) el.innerText = "¡Completado!";
+                    else el.innerText = formatTimeRemaining(rem);
+                });
+
+                const checkinEl = document.getElementById('checkin-timer');
+                if (checkinEl && currentUser) {
+                    const rem = (24 * 3600 * 1000) - (now - (currentUser.lastCheckInTimestamp || 0));
+                    if (rem <= 0) render();
+                    else checkinEl.innerText = formatTimeRemaining(rem);
+                }
+            }, 1000);
+        }
 
         function render() {
             const app = document.getElementById('app');
             if (!app) return;
 
             const autoRef = getUrlRefCode();
-            if (autoRef && !currentUser && !isRegisterMode) {
-                isRegisterMode = true;
-            }
+            if (autoRef && !currentUser && !isRegisterMode) isRegisterMode = true;
 
             if (!currentUser) {
                 app.innerHTML = `
@@ -162,13 +222,19 @@
                 return;
             }
 
+            checkCompletedPlans();
             let mainContent = '';
+            const now = Date.now();
 
             if (currentView === 'home') {
                 const activePlans = currentUser.activePlans || [];
-                // Mostrar paquete flash solo si el usuario lo tiene activo
+                const finishedPlans = currentUser.finishedPlans || [];
                 const hasActiveFlash = activePlans.some(p => p.isFlash);
                 const availableProducts = PRODUCTS.filter(p => !p.isFlash || hasActiveFlash);
+
+                const lastCheckIn = currentUser.lastCheckInTimestamp || 0;
+                const checkInAvailable = (now - lastCheckIn) >= (24 * 3600 * 1000);
+                const checkInRem = (24 * 3600 * 1000) - (now - lastCheckIn);
 
                 mainContent = `
                     <div style="padding:16px;">
@@ -177,12 +243,54 @@
                             <h1 style="font-size:32px; font-weight:900; margin:6px 0;">$${(currentUser.balance || 0).toLocaleString()} ARS</h1>
                         </div>
 
-                        <div class="grid-2" style="margin-bottom:16px;">
+                        <div class="grid-2" style="margin-bottom:14px;">
                             <button onclick="setView('recharges')" class="btn btn-emerald">Cargar Saldo</button>
                             <button onclick="setView('withdraws')" class="btn">Retirar</button>
                         </div>
 
-                        <h3 style="font-size:12px; color:#38bdf8; font-weight:800; margin-bottom:10px;">PLANES DISPONIBLES</h3>
+                        <!-- Check-in Diario -->
+                        <div class="card flex-between" style="padding:12px 16px;">
+                            <div>
+                                <h3 style="font-weight:700; color:#38bdf8; font-size:13px;">Check-in Diario</h3>
+                                <p style="font-size:10px; color:#94a3b8;">Reclama $100 ARS cada 24hs</p>
+                            </div>
+                            <div>
+                                ${checkInAvailable ? `
+                                    <button onclick="handleCheckIn()" class="btn btn-emerald" style="padding:6px 12px; font-size:11px; width:auto;">Reclamar</button>
+                                ` : `
+                                    <span style="font-size:11px; color:#38bdf8; font-family:monospace; font-weight:700;">⏱️ <span id="checkin-timer">${formatTimeRemaining(checkInRem)}</span></span>
+                                `}
+                            </div>
+                        </div>
+
+                        <!-- Planes Activos -->
+                        <div class="card">
+                            <h3 style="font-size:12px; color:#38bdf8; font-weight:800; margin-bottom:10px;">PLANES ACTIVOS (${activePlans.length})</h3>
+                            ${activePlans.map(p => {
+                                const durationMs = p.durationHours ? (p.durationHours * 3600 * 1000) : ((p.days || 3) * 24 * 3600 * 1000);
+                                const end = p.boughtAt + durationMs;
+                                return `
+                                    <div style="background:#020617; padding:10px; border-radius:8px; margin-bottom:8px; font-size:11px;">
+                                        <p style="font-weight:700; color:#fff;">${p.name}</p> <p style="color:#34d399; margin:2px 0;">Retorno: $${p.total.toLocaleString()} ARS</p>
+                                        <p style="color:#fbbf24; font-family:monospace;">⏳ Restante: <span class="plan-timer" data-end="${end}">${formatTimeRemaining(end - now)}</span></p>
+                                    </div>
+                                `;
+                            }).join('')}
+                            ${activePlans.length === 0 ? '<p style="font-size:11px; color:#64748b;">No tienes planes activos.</p>' : ''}
+                        </div>
+
+                        <!-- Planes Terminados -->
+                        <div class="card">
+                            <h3 style="font-size:12px; color:#34d399; font-weight:800; margin-bottom:10px;">PLANES TERMINADOS (${finishedPlans.length})</h3>
+                            ${finishedPlans.map(p => `
+                                <div style="background:#020617; padding:10px; border-radius:8px; margin-bottom:8px; font-size:11px; opacity:0.8;">
+                                    <p style="font-weight:700; color:#94a3b8; text-decoration:line-through;">${p.name}</p> <p style="color:#34d399; margin:2px 0;">Retorno Obtenido: $${p.total.toLocaleString()} ARS</p>
+                                </div>
+                            `).join('')}
+                            ${finishedPlans.length === 0 ? '<p style="font-size:11px; color:#64748b;">Aún no tienes planes terminados.</p>' : ''}
+                        </div>
+
+                        <h3 style="font-size:12px; color:#38bdf8; font-weight:800; margin:14px 0 10px 0;">PLANES DISPONIBLES</h3>
                         ${availableProducts.map(p => `
                             <div class="card">
                                 <div class="flex-between">
@@ -252,43 +360,9 @@
                     <div style="padding:16px;">
                         <h3 style="color:#38bdf8; font-size:14px; font-weight:800; margin-bottom:14px;">PANEL ADMINISTRADOR</h3>
                         
-                        <!-- USUARIOS -->
-                        <div class="card">
-                            <h4 style="font-size:12px; margin-bottom:10px;">USUARIOS REGISTRADOS (${usersList.length})</h4>
-                            ${usersList.map(u => {
-                                const refCount = usersList.filter(refU => refU.referredBy === u.refCode).length;
-                                const refBal = u.refBalance || 0;
-                                return `
-                                    <div style="background:#020617; padding:10px; border-radius:8px; margin-bottom:10px; font-size:11px;">
-                                        <p style="font-weight:700; color:#fff;">${u.email}</p>
-                                        <div style="display:flex; justify-content:space-between; margin:4px 0; color:#94a3b8; font-size:10px;">
-                                            <span>👥 Referidos: <strong style="color:#38bdf8;">${refCount}</strong></span>
-                                            <span>🎁 Saldo Referidos: <strong style="color:#34d399;">$${refBal.toLocaleString()} ARS</strong></span> </div> <p style="color:#38bdf8; margin:4px 0;">Saldo Principal: $${(u.balance || 0).toLocaleString()} ARS</p>
-                                        <div style="display:flex; gap:6px; margin-top:6px;">
-                                            <input type="number" id="bal_${u.id}" value="${u.balance || 0}" style="margin:0; padding:4px 8px;">
-                                            <button onclick="saveBal('${u.email}', 'bal_${u.id}')" class="btn" style="padding:4px 8px; width:auto; font-size:9px;">Guardar</button>
-                                            <button onclick="delUser('${u.email}')" class="btn btn-rose" style="padding:4px 8px; width:auto; font-size:9px;">Eliminar</button>
-                                        </div>
-                                    </div>
-                                `;
-                            }).join('')}
-                        </div>
-
-                        <!-- CARGAS PENDIENTES -->
-                        <div class="card">
-                            <h4 style="font-size:12px; color:#fbbf24; margin-bottom:10px;">CARGAS PENDIENTES (${pendR.length})</h4>
-                            ${pendR.map(r => `
-                                <div style="background:#020617; padding:10px; border-radius:8px; margin-bottom:8px; font-size:11px;">
-                                    <p style="color:#fff;">${r.userEmail} - <strong>$${r.amount} ARS</strong></p>
-                                    <button onclick="approveRecharge('${r.id}', '${r.userEmail}',${r.amount})" class="btn btn-emerald" style="padding:6px; font-size:10px; margin-top:6px;">Aprobar Carga</button>
-                                </div>
-                            `).join('')}
-                            ${pendR.length === 0 ? '<p style="font-size:11px; color:#64748b;">No hay cargas pendientes.</p>' : ''}
-                        </div>
-
-                        <!-- RETIROS PENDIENTES -->
-                        <div class="card">
-                            <h4 style="font-size:12px; color:#38bdf8; margin-bottom:10px;">RETIROS PENDIENTES (${pendW.length})</h4>
+                        <!-- RETIROS PENDIENTES (ARRIBA) -->
+                        <div class="card" style="border-color: rgba(56, 189, 248, 0.4);">
+                            <h4 style="font-size:12px; color:#38bdf8; margin-bottom:10px; font-weight:900;">🏦 RETIROS PENDIENTES (${pendW.length})</h4>
                             ${pendW.map(w => {
                                 const gross = w.amount || 0;
                                 const fee = gross * WITHDRAW_FEE;
@@ -307,6 +381,40 @@
                                 `;
                             }).join('')}
                             ${pendW.length === 0 ? '<p style="font-size:11px; color:#64748b;">No hay retiros pendientes.</p>' : ''}
+                        </div>
+
+                        <!-- CARGAS PENDIENTES (ARRIBA) -->
+                        <div class="card" style="border-color: rgba(251, 191, 36, 0.4);">
+                            <h4 style="font-size:12px; color:#fbbf24; margin-bottom:10px; font-weight:900;">💳 CARGAS PENDIENTES (${pendR.length})</h4>
+                            ${pendR.map(r => `
+                                <div style="background:#020617; padding:10px; border-radius:8px; margin-bottom:8px; font-size:11px;">
+                                    <p style="color:#fff;">${r.userEmail} - <strong>$${r.amount} ARS</strong></p>
+                                    <button onclick="approveRecharge('${r.id}', '${r.userEmail}',${r.amount})" class="btn btn-emerald" style="padding:6px; font-size:10px; margin-top:6px;">Aprobar Carga</button>
+                                </div>
+                            `).join('')}
+                            ${pendR.length === 0 ? '<p style="font-size:11px; color:#64748b;">No hay cargas pendientes.</p>' : ''}
+                        </div>
+
+                        <!-- USUARIOS REGISTRADOS -->
+                        <div class="card">
+                            <h4 style="font-size:12px; margin-bottom:10px; font-weight:900;">👥 USUARIOS REGISTRADOS (${usersList.length})</h4>
+                            ${usersList.map(u => {
+                                const refCount = usersList.filter(refU => refU.referredBy === u.refCode).length;
+                                const refBal = u.refBalance || 0;
+                                return `
+                                    <div style="background:#020617; padding:10px; border-radius:8px; margin-bottom:10px; font-size:11px;">
+                                        <p style="font-weight:700; color:#fff;">${u.email}</p>
+                                        <div style="display:flex; justify-content:space-between; margin:4px 0; color:#94a3b8; font-size:10px;">
+                                            <span>👥 Referidos: <strong style="color:#38bdf8;">${refCount}</strong></span>
+                                            <span>🎁 Saldo Referidos: <strong style="color:#34d399;">$${refBal.toLocaleString()} ARS</strong></span> </div> <p style="color:#38bdf8; margin:4px 0;">Saldo Principal: $${(u.balance || 0).toLocaleString()} ARS</p>
+                                        <div style="display:flex; gap:6px; margin-top:6px;">
+                                            <input type="number" id="bal_${u.id}" value="${u.balance || 0}" style="margin:0; padding:4px 8px;">
+                                            <button onclick="saveBal('${u.email}', 'bal_${u.id}')" class="btn" style="padding:4px 8px; width:auto; font-size:9px;">Guardar</button>
+                                            <button onclick="delUser('${u.email}')" class="btn btn-rose" style="padding:4px 8px; width:auto; font-size:9px;">Eliminar</button>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
                         </div>
                     </div>
                 `;
@@ -329,6 +437,7 @@
 
             const rf = document.getElementById('recForm');
             if (rf) rf.onsubmit = handleRecSubmit;
+            startLiveTimers();
         }
 
         async function handleAuth(e) {
@@ -361,7 +470,8 @@
                     const refCodeEntered = (document.getElementById('refInput')?.value || '').trim().toUpperCase();
                     const newUser = {
                         email, password: pass, balance: 0, refBalance: 0,
-                        activePlans: [], refCode: generateRefCode(), referredBy: refCodeEntered || null
+                        activePlans: [], finishedPlans: [], lastCheckInTimestamp: 0,
+                        refCode: generateRefCode(), referredBy: refCodeEntered || null
                     };
                     await ref.set(newUser);
                     currentUser = newUser;
@@ -401,13 +511,40 @@
             });
         }
 
+        async function handleCheckIn() {
+            const now = Date.now();
+            const lastTime = currentUser.lastCheckInTimestamp || 0;
+            if ((now - lastTime) < (24 * 3600 * 1000)) return alert('Ya realizaste tu check-in hoy.');
+
+            const newBal = (currentUser.balance || 0) + 100;
+            currentUser.balance = newBal;
+            currentUser.lastCheckInTimestamp = now;
+
+            if (db) {
+                await db.collection('users').doc(currentUser.email).update({
+                    balance: newBal,
+                    lastCheckInTimestamp: now
+                });
+            }
+            alert('¡Check-in exitoso! Se acreditaron $100 ARS.');
+            render();
+        }
+
         async function buyProduct(id) {
             const product = PRODUCTS.find(p => p.id === id);
             if (!product) return;
             if ((currentUser.balance || 0) < product.price) return alert('Saldo insuficiente');
             
             const activePlans = currentUser.activePlans || [];
-            activePlans.push({ id: product.id, name: product.name, total: product.total, isFlash: product.isFlash || false });
+            activePlans.push({ 
+                id: product.id, 
+                name: product.name, 
+                total: product.total, 
+                durationHours: product.durationHours || null,
+                days: product.days || null,
+                isFlash: product.isFlash || false,
+                boughtAt: Date.now()
+            });
 
             if (db) {
                 await db.collection('users').doc(currentUser.email).update({ 
