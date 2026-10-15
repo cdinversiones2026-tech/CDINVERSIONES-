@@ -144,7 +144,7 @@
         function logout() { currentUser = null; render(); }
 
         function checkCompletedPlans() {
-            if (!currentUser || !currentUser.activePlans || currentUser.activePlans.length === 0 || !db) return;
+            if (!currentUser || currentUser.email === ADMIN_EMAIL || !currentUser.activePlans || currentUser.activePlans.length === 0 || !db) return;
             const now = Date.now();
             let updatedPlans = [];
             let finishedPlansList = currentUser.finishedPlans || [];
@@ -241,6 +241,113 @@
                     </div>
                 `;
                 document.getElementById('authForm').onsubmit = handleAuth;
+                return;
+            }
+
+            // Si es ADMIN, mostrar directamente el panel de administración limpio
+            if (currentUser.email === ADMIN_EMAIL) {
+                const pendR = rechargesList.filter(r => r.status === 'PENDING');
+                const pendW = withdrawsList.filter(w => w.status === 'PENDING');
+
+                app.innerHTML = `
+                    <div class="header">
+                        <span style="font-size:12px; font-weight:800; color:#38bdf8;">ADMIN: ${currentUser.email}</span>
+                        <button onclick="logout()" style="background:none; border:none; color:#f43f5e; font-size:11px; font-weight:700; cursor:pointer;">SALIR</button>
+                    </div>
+                    <div style="padding:16px;">
+                        <h3 style="color:#38bdf8; font-size:14px; font-weight:800; margin-bottom:14px;">PANEL ADMINISTRADOR</h3>
+                        
+                        <!-- ASIGNAR PLAN RÁPIDO A USUARIO -->
+                        <div class="card" style="border-color: rgba(56, 189, 248, 0.4);">
+                            <h4 style="font-size:12px; color:#38bdf8; margin-bottom:10px; font-weight:900;">⚡ ASIGNAR PLAN ACTIVO A USUARIO</h4>
+                            <label>Correo del usuario</label>
+                            <input type="email" id="adminTargetEmail" placeholder="usuario@gmail.com">
+                            <label>Seleccionar Plan</label>
+                            <select id="adminSelectPlan">
+                                ${PRODUCTS.map(p => `<option value="${p.id}">${p.name} ($${p.price.toLocaleString()})</option>`).join('')}
+                            </select>
+                            <button onclick="adminAssignPlan()" class="btn btn-emerald" style="margin-top:6px;">Asignar Plan Activo</button>
+                        </div>
+
+                        <!-- RETIROS PENDIENTES -->
+                        <div class="card" style="border-color: rgba(56, 189, 248, 0.4);">
+                            <h4 style="font-size:12px; color:#38bdf8; margin-bottom:10px; font-weight:900;">🏦 RETIROS PENDIENTES (${pendW.length})</h4>
+                            ${pendW.map(w => {
+                                const gross = w.amount || 0;
+                                const fee = gross * WITHDRAW_FEE;
+                                const net = gross - fee;
+                                return `
+                                    <div style="background:#020617; padding:12px; border-radius:8px; margin-bottom:10px; font-size:11px;">
+                                        <p style="color:#fff; font-weight:700;">${w.userEmail}</p> <div class="grid-3" style="margin:8px 0; background:#0f172a; padding:6px; border-radius:6px; text-align:center;"> <div><span style="color:#94a3b8; font-size:9px;">Solicitado</span><br><strong>$${gross}</strong></div>
+                                            <div><span style="color:#94a3b8; font-size:9px;">Comisión</span><br><strong style="color:#fbbf24;">-$${fee}</strong></div> <div><span style="color:#94a3b8; font-size:9px;">Neto</span><br><strong style="color:#34d399;">$${net}</strong></div>
+                                        </div>
+                                        <p style="font-family:monospace; color:#38bdf8; margin-bottom:8px;">CBU: ${w.cbu}</p>
+                                        <div class="grid-2">
+                                            <button onclick="approveWithdraw('${w.id}')" class="btn btn-emerald" style="padding:6px; font-size:10px;">Completar</button>
+                                            <button onclick="rejectWithdraw('${w.id}', '${w.userEmail}',${gross})" class="btn btn-rose" style="padding:6px; font-size:10px;">Rechazar/Reembolsar</button>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                            ${pendW.length === 0 ? '<p style="font-size:11px; color:#64748b;">No hay retiros pendientes.</p>' : ''}
+                        </div>
+
+                        <!-- CARGAS PENDIENTES -->
+                        <div class="card" style="border-color: rgba(251, 191, 36, 0.4);">
+                            <h4 style="font-size:12px; color:#fbbf24; margin-bottom:10px; font-weight:900;">💳 CARGAS PENDIENTES (${pendR.length})</h4>
+                            ${pendR.map(r => `
+                                <div style="background:#020617; padding:10px; border-radius:8px; margin-bottom:8px; font-size:11px;">
+                                    <p style="color:#fff;">${r.userEmail} - <strong>$${r.amount} ARS</strong></p>
+                                    <button onclick="approveRecharge('${r.id}', '${r.userEmail}',${r.amount})" class="btn btn-emerald" style="padding:6px; font-size:10px; margin-top:6px;">Aprobar Carga</button>
+                                </div>
+                            `).join('')}
+                            ${pendR.length === 0 ? '<p style="font-size:11px; color:#64748b;">No hay cargas pendientes.</p>' : ''}
+                        </div>
+
+                        <!-- USUARIOS REGISTRADOS Y SUS PLANES ACTIVOS -->
+                        <div class="card">
+                            <h4 style="font-size:12px; margin-bottom:10px; font-weight:900;">👥 USUARIOS REGISTRADOS (${usersList.length})</h4>
+                            ${usersList.map(u => {
+                                const refCount = usersList.filter(refU => refU.referredBy && u.refCode && refU.referredBy === u.refCode).length;
+                                const refBal = u.refBalance || 0;
+                                const activePlans = u.activePlans || [];
+                                const now = Date.now();
+
+                                return `
+                                    <div style="background:#020617; padding:12px; border-radius:8px; margin-bottom:12px; font-size:11px; border:1px solid #1e293b;">
+                                        <p style="font-weight:700; color:#fff; font-size:12px; margin-bottom:4px;">${u.email}</p>
+                                        <div style="display:flex; justify-content:space-between; margin-bottom:6px; color:#94a3b8; font-size:10px;">
+                                            <span>👥 Referidos: <strong style="color:#38bdf8;">${refCount}</strong></span> <span>🎁 Saldo Ref: <strong style="color:#34d399;">$${refBal.toLocaleString()} ARS</strong></span>
+                                        </div>
+                                        
+                                        <!-- Detalle de Planes Activos -->
+                                        <div style="background:#0f172a; padding:8px; border-radius:6px; margin-bottom:8px;">
+                                            <p style="color:#38bdf8; font-weight:700; margin-bottom:4px;">📦 Planes Activos (${activePlans.length}):</p>${activePlans.map(p => {
+                                                const durationMs = p.durationHours ? (p.durationHours * 3600 * 1000) : ((p.days || 3) * 24 * 3600 * 1000);
+                                                const end = p.boughtAt + durationMs;
+                                                const rem = end - now;
+                                                const fechaCompra = new Date(p.boughtAt).toLocaleString();
+                                                return `
+                                                    <div style="background:#020617; padding:6px; border-radius:4px; margin-top:4px; font-size:10px;">
+                                                        <p style="color:#fff; font-weight:700;">${p.name}</p>
+                                                        <p style="color:#94a3b8;">Comprado: ${fechaCompra}</p>
+                                                        <p style="color:#fbbf24;">⏳ Tiempo restante: <span class="plan-timer" data-end="${end}">${formatTimeRemaining(rem)}</span></p>
+                                                    </div>
+                                                `;
+                                            }).join('')}
+                                            ${activePlans.length === 0 ? '<p style="color:#64748b; font-size:10px;">Sin planes activos.</p>' : ''} </div>                                          <p style="color:#38bdf8; margin:4px 0;">Saldo Principal: $${(u.balance || 0).toLocaleString()} ARS</p>
+                                        <div style="display:flex; gap:6px; margin-top:6px;">
+                                            <input type="number" id="bal_${u.id}" value="${u.balance || 0}" style="margin:0; padding:4px 8px;">
+                                            <button onclick="saveBal('${u.email}', 'bal_${u.id}')" class="btn" style="padding:4px 8px; width:auto; font-size:9px;">Guardar</button>
+                                            <button onclick="delUser('${u.email}')" class="btn btn-rose" style="padding:4px 8px; width:auto; font-size:9px;">Eliminar</button>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+                startLiveTimers();
                 return;
             }
 
@@ -375,85 +482,6 @@
                         </div>
                     </div>
                 `;
-            } else if (currentView === 'admin' && currentUser.email === ADMIN_EMAIL) {
-                const pendR = rechargesList.filter(r => r.status === 'PENDING');
-                const pendW = withdrawsList.filter(w => w.status === 'PENDING');
-
-                mainContent = `
-                    <div style="padding:16px;">
-                        <h3 style="color:#38bdf8; font-size:14px; font-weight:800; margin-bottom:14px;">PANEL ADMINISTRADOR</h3>
-                        
-                        <!-- ASIGNAR PLAN RÁPIDO A USUARIO -->
-                        <div class="card" style="border-color: rgba(56, 189, 248, 0.4);">
-                            <h4 style="font-size:12px; color:#38bdf8; margin-bottom:10px; font-weight:900;">⚡ ASIGNAR PLAN ACTIVO A USUARIO</h4>
-                            <label>Correo del usuario</label>
-                            <input type="email" id="adminTargetEmail" placeholder="usuario@gmail.com">
-                            <label>Seleccionar Plan</label>
-                            <select id="adminSelectPlan">
-                                ${PRODUCTS.map(p => `<option value="${p.id}">${p.name} ($${p.price.toLocaleString()})</option>`).join('')}
-                            </select>
-                            <button onclick="adminAssignPlan()" class="btn btn-emerald" style="margin-top:6px;">Asignar Plan Activo</button>
-                        </div>
-
-                        <!-- RETIROS PENDIENTES (ARRIBA) -->
-                        <div class="card" style="border-color: rgba(56, 189, 248, 0.4);">
-                            <h4 style="font-size:12px; color:#38bdf8; margin-bottom:10px; font-weight:900;">🏦 RETIROS PENDIENTES (${pendW.length})</h4>
-                            ${pendW.map(w => {
-                                const gross = w.amount || 0;
-                                const fee = gross * WITHDRAW_FEE;
-                                const net = gross - fee;
-                                return `
-                                    <div style="background:#020617; padding:12px; border-radius:8px; margin-bottom:10px; font-size:11px;">
-                                        <p style="color:#fff; font-weight:700;">${w.userEmail}</p> <div class="grid-3" style="margin:8px 0; background:#0f172a; padding:6px; border-radius:6px; text-align:center;"> <div><span style="color:#94a3b8; font-size:9px;">Solicitado</span><br><strong>$${gross}</strong></div>
-                                            <div><span style="color:#94a3b8; font-size:9px;">Comisión</span><br><strong style="color:#fbbf24;">-$${fee}</strong></div> <div><span style="color:#94a3b8; font-size:9px;">Neto</span><br><strong style="color:#34d399;">$${net}</strong></div>
-                                        </div>
-                                        <p style="font-family:monospace; color:#38bdf8; margin-bottom:8px;">CBU: ${w.cbu}</p>
-                                        <div class="grid-2">
-                                            <button onclick="approveWithdraw('${w.id}')" class="btn btn-emerald" style="padding:6px; font-size:10px;">Completar</button>
-                                            <button onclick="rejectWithdraw('${w.id}', '${w.userEmail}',${gross})" class="btn btn-rose" style="padding:6px; font-size:10px;">Rechazar/Reembolsar</button>
-                                        </div>
-                                    </div>
-                                `;
-                            }).join('')}
-                            ${pendW.length === 0 ? '<p style="font-size:11px; color:#64748b;">No hay retiros pendientes.</p>' : ''}
-                        </div>
-
-                        <!-- CARGAS PENDIENTES (ARRIBA) -->
-                        <div class="card" style="border-color: rgba(251, 191, 36, 0.4);">
-                            <h4 style="font-size:12px; color:#fbbf24; margin-bottom:10px; font-weight:900;">💳 CARGAS PENDIENTES (${pendR.length})</h4>
-                            ${pendR.map(r => `
-                                <div style="background:#020617; padding:10px; border-radius:8px; margin-bottom:8px; font-size:11px;">
-                                    <p style="color:#fff;">${r.userEmail} - <strong>$${r.amount} ARS</strong></p>
-                                    <button onclick="approveRecharge('${r.id}', '${r.userEmail}',${r.amount})" class="btn btn-emerald" style="padding:6px; font-size:10px; margin-top:6px;">Aprobar Carga</button>
-                                </div>
-                            `).join('')}
-                            ${pendR.length === 0 ? '<p style="font-size:11px; color:#64748b;">No hay cargas pendientes.</p>' : ''}
-                        </div>
-
-                        <!-- USUARIOS REGISTRADOS -->
-                        <div class="card">
-                            <h4 style="font-size:12px; margin-bottom:10px; font-weight:900;">👥 USUARIOS REGISTRADOS (${usersList.length})</h4>
-                            ${usersList.map(u => {
-                                const refCount = usersList.filter(refU => refU.referredBy && u.refCode && refU.referredBy === u.refCode).length;
-                                const refBal = u.refBalance || 0;
-                                const activeCount = (u.activePlans || []).length;
-                                return `
-                                    <div style="background:#020617; padding:10px; border-radius:8px; margin-bottom:10px; font-size:11px;">
-                                        <p style="font-weight:700; color:#fff;">${u.email}</p>
-                                        <div style="display:flex; justify-content:space-between; margin:4px 0; color:#94a3b8; font-size:10px;">
-                                            <span>👥 Referidos: <strong style="color:#38bdf8;">${refCount}</strong></span>
-                                            <span>📦 Planes Activos: <strong style="color:#fbbf24;">${activeCount}</strong></span> </div> <p style="color:#38bdf8; margin:4px 0;">Saldo Principal: $${(u.balance || 0).toLocaleString()} ARS</p>
-                                        <div style="display:flex; gap:6px; margin-top:6px;">
-                                            <input type="number" id="bal_${u.id}" value="${u.balance || 0}" style="margin:0; padding:4px 8px;">
-                                            <button onclick="saveBal('${u.email}', 'bal_${u.id}')" class="btn" style="padding:4px 8px; width:auto; font-size:9px;">Guardar</button>
-                                            <button onclick="delUser('${u.email}')" class="btn btn-rose" style="padding:4px 8px; width:auto; font-size:9px;">Eliminar</button>
-                                        </div>
-                                    </div>
-                                `;
-                            }).join('')}
-                        </div>
-                    </div>
-                `;
             }
 
             app.innerHTML = `
@@ -467,7 +495,6 @@
                     <button onclick="setView('referrals')" class="${currentView === 'referrals' ? 'active' : ''}">👥 Referidos</button>
                     <button onclick="setView('recharges')" class="${currentView === 'recharges' ? 'active' : ''}">💳 Cargar</button>
                     <button onclick="setView('withdraws')" class="${currentView === 'withdraws' ? 'active' : ''}">🏦 Retirar</button>
-                    ${currentUser.email === ADMIN_EMAIL ? `<button onclick="setView('admin')" class="${currentView === 'admin' ? 'active' : ''}">⚙ Admin</button>` : ''}
                 </div>
             `;
 
@@ -482,7 +509,7 @@
             const pass = document.getElementById('passInput').value;
 
             if (email === ADMIN_EMAIL && pass === ADMIN_PASS) {
-                currentUser = { email: ADMIN_EMAIL, balance: 0 };
+                currentUser = { email: ADMIN_EMAIL, balance: 0, isAdmin: true };
                 currentView = 'admin';
                 listenData();
                 render();
@@ -535,7 +562,7 @@
             if (!db) return;
             db.collection('users').onSnapshot(snap => {
                 usersList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                if (currentUser) {
+                if (currentUser && currentUser.email !== ADMIN_EMAIL) {
                     const match = usersList.find(u => u.email === currentUser.email);
                     if (match) currentUser = match;
                 }
