@@ -239,13 +239,13 @@
                     }
                 }
 
-                // 2. Actualizar Cronómetros de Planes Activos
+                // 2. Actualizar Cronómetros de cada plan activo con índice único
                 const userPurchases = currentUser.purchases || {};
                 const userTimestamps = currentUser.purchaseTimestamps || {};
                 const activePlans = PRODUCTS.filter(p => getPurchasedQty(userPurchases, p) > 0);
 
-                activePlans.forEach(p => {
-                    const timerEl = document.getElementById(`plan-timer-${p.id}`);
+                activePlans.forEach((p, index) => {
+                    const timerEl = document.getElementById(`plan-timer-${index}`);
                     if (timerEl) {
                         const boughtAt = getPurchaseTimestamp(userTimestamps, p);
                         const durationMs = p.days * 24 * 60 * 60 * 1000;
@@ -452,11 +452,11 @@
                             </div>
                         </div>
 
-                        <!-- MIS PLANES ADQUIRIDOS CON CRONÓMETRO -->
+                        <!-- MIS PLANES ADQUIRIDOS CON CRONÓMETROS INDEPENDIENTES -->
                         <div class="bg-slate-900/90 p-4 rounded-xl border border-cyan-500/30 space-y-3">
                             <h3 class="text-xs font-bold uppercase tracking-wider text-emerald-400">Mis Planes Adquiridos (${activePlans.length})</h3>
                             <div class="space-y-2">
-                                ${activePlans.map(p => {
+                                ${activePlans.map((p, index) => {
                                     const qty = getPurchasedQty(userPurchases, p);
                                     const totalAccumulatedReturn = p.total * qty;
                                     const boughtAt = getPurchaseTimestamp(userTimestamps, p);
@@ -468,7 +468,7 @@
                                             <div class="space-y-1">
                                                 <p class="font-bold text-white">${p.name}</p> <p class="text-[10px] text-slate-400">Rendimiento: $${p.dailyYield.toLocaleString()} ARS/día • Plazo: ${p.days} días</p> <p class="text-[11px] text-emerald-400 font-bold">Retorno Total: $${totalAccumulatedReturn.toLocaleString()} ARS</p>
                                                 <p class="text-[11px] text-amber-400 font-mono font-bold flex items-center gap-1 pt-0.5">
-                                                    ⏳ Restante: <span id="plan-timer-${p.id}">${formatTimeRemaining(remainingMs)}</span>
+                                                    ⏳ Restante: <span id="plan-timer-${index}">${formatTimeRemaining(remainingMs)}</span>
                                                 </p>
                                             </div>
                                             <span class="bg-emerald-500/20 text-emerald-300 font-bold px-2 py-1 rounded border border-emerald-500/40 text-[10px] flex-shrink-0 ml-2">
