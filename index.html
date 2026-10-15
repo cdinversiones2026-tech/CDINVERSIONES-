@@ -2,10 +2,188 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Prueba de Carga</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CDINVERSIONES - Panel Oficial</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background-color: #020617; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; min-height: 100vh; }
+        .container { max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; justify-content: space-between; position: relative; background: #020617; border-left: 1px solid #1e293b; border-right: 1px solid #1e293b; padding-bottom: 80px; }
+        .card { background: #0f172a; border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 16px; padding: 24px; box-shadow: 0 0 20px rgba(56, 189, 248, 0.1); }
+        .btn { width: 100%; background: linear-gradient(90deg, #38bdf8, #2563eb); color: #020617; border: none; padding: 12px; font-weight: 900; border-radius: 8px; cursor: pointer; text-transform: uppercase; font-size: 13px; }
+        input { width: 100%; background: #020617; color: #fff; padding: 12px; border-radius: 8px; border: 1px solid #334155; font-size: 13px; margin-top: 4px; margin-bottom: 12px; }
+        label { display: block; font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase; }
+        .nav { position: fixed; bottom: 0; left: 0; right: 0; max-width: 480px; margin: 0 auto; background: rgba(15, 23, 42, 0.95); border-top: 1px solid #1e293b; display: flex; justify-content: space-around; padding: 10px; z-index: 1000; }
+        .nav button { background: none; border: none; color: #94a3b8; font-size: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+        .nav button.active { color: #38bdf8; font-weight: bold; }
+    </style>
 </head>
-<body style="background-color: #0f172a; color: #38bdf8; text-align: center; padding-top: 50px; font-family: sans-serif;">
-    <h1>¡EL ARCHIVO SE ACTUALIZÓ CORRECTAMENTE!</h1>
-    <p>Si ves este mensaje en azul sobre fondo oscuro, significa que los cambios ya se reflejan.</p>
+<body>
+
+    <div id="app" class="container"></div>
+
+    <script>
+        let currentUser = null;
+        let currentView = 'home';
+        let isRegisterMode = false;
+
+        const ADMIN_EMAIL = "cdinversiones2026@gmail.com";
+        const ADMIN_PASS = "somos.9";
+        const BANK_CBU = "0000013000032204321913";
+
+        const PRODUCTS = [
+            { id: 1, name: "Plan Celular 5.000 ARS", price: 5000, days: 3, total: 7750 },
+            { id: 2, name: "Plan Celular 10.000 ARS", price: 10000, days: 6, total: 15500 },
+            { id: 3, name: "Plan Celular 16.000 ARS", price: 16000, days: 8, total: 24800 },
+            { id: 4, name: "Plan Celular 20.000 ARS", price: 20000, days: 11, total: 31000 }
+        ];
+
+        function render() {
+            const app = document.getElementById('app');
+            if (!app) return;
+
+            if (!currentUser) {
+                app.innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 16px; width: 100%;">
+                        <div class="card" style="width: 100%; text-align: center;">
+                            <h1 style="color: #38bdf8; font-size: 24px; font-weight: 900; margin-bottom: 4px;">CDINVERSIONES</h1>
+                            <p style="color: #94a3b8; font-size: 12px; margin-bottom: 24px;">Panel Oficial de Inversión</p>
+                            
+                            <form id="authForm" style="text-align: left;">
+                                <div>
+                                    <label>Correo Electrónico</label>
+                                    <input type="email" id="emailInput" required placeholder="correo@ejemplo.com">
+                                </div>
+                                <div>
+                                    <label>Contraseña</label>
+                                    <input type="password" id="passInput" required placeholder="••••••••">
+                                </div>
+                                <button type="submit" class="btn" style="margin-top: 8px;">
+                                    ${isRegisterMode ? 'Crear Cuenta' : 'Iniciar Sesión'}
+                                </button>
+                            </form>
+                            
+                            <div style="margin-top: 20px;">
+                                <button onclick="toggleAuthMode()" style="background: none; border: none; color: #38bdf8; font-size: 12px; cursor: pointer;">
+                                    ${isRegisterMode ? '¿Ya tienes cuenta? Inicia Sesión' : '¿No tienes cuenta? Regístrate aquí'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('authForm').onsubmit = handleAuth;
+                return;
+            }
+
+            let mainContent = '';
+
+            if (currentView === 'home') {
+                mainContent = `
+                    <div style="padding: 16px; display: flex; flex-direction: column; gap: 16px;">
+                        <div class="card" style="background: linear-gradient(135deg, #0f172a, #1e3a8a);">
+                            <p style="font-size: 10px; font-weight: bold; color: #38bdf8; text-transform: uppercase;">SALDO DISPONIBLE</p>
+                            <h2 style="font-size: 28px; font-weight: 900; margin: 4px 0;">$${(currentUser.balance || 0).toLocaleString()} ARS</h2>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                            <button onclick="setView('recharges')" class="btn" style="background: #059669; color: #fff;">Cargar Saldo</button>
+                            <button onclick="setView('withdraws')" class="btn" style="background: #2563eb; color: #fff;">Retirar</button>
+                        </div>
+
+                        <h3 style="font-size: 14px; color: #38bdf8; text-transform: uppercase; margin-top: 8px;">Planes Disponibles</h3>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                            ${PRODUCTS.map(p => `
+                                <div class="card" style="padding: 16px;">
+                                    <h4 style="font-size: 14px; font-weight: bold; margin-bottom: 4px;">${p.name}</h4> <p style="font-size: 12px; color: #94a3b8; margin-bottom: 8px;">Inversión: $${p.price.toLocaleString()} ARS | Plazo: ${p.days} días</p> <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #1e293b; padding-top: 8px;"> <span style="font-size: 12px; color: #34d399; font-weight: bold;">Retorno: $${p.total.toLocaleString()} ARS</span>
+                                        <button onclick="buyProduct(${p.price})" style="background: #38bdf8; color: #020617; border: none; padding: 6px 12px; font-weight: bold; border-radius: 6px; font-size: 11px; cursor: pointer;">Adquirir</button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            } else if (currentView === 'recharges') {
+                mainContent = `
+                    <div style="padding: 16px; display: flex; flex-direction: column; gap: 16px;">
+                        <div class="card">
+                            <h3 style="font-size: 14px; color: #38bdf8; text-transform: uppercase; margin-bottom: 12px;">Cargar Saldo</h3>
+                            <p style="font-size: 12px; color: #cbd5e1; margin-bottom: 8px;">Realiza una transferencia al CBU:</p>
+                            <p style="font-size: 14px; font-family: monospace; color: #38bdf8; font-weight: bold; margin-bottom: 12px;">${BANK_CBU}</p>
+                            <button onclick="alert('CBU copiado al portapapeles')" class="btn" style="background: #334155; color: #fff; margin-bottom: 16px;">Copiar CBU</button>
+                            <label>Monto a recargar</label>
+                            <input type="number" id="recMonto" placeholder="Ej: 6500">
+                            <button onclick="alert('Solicitud de recarga enviada con éxito')" class="btn" style="background: #059669; color: #fff;">Enviar Comprobante</button>
+                        </div>
+                    </div>
+                `;
+            } else if (currentView === 'withdraws') {
+                mainContent = `
+                    <div style="padding: 16px; display: flex; flex-direction: column; gap: 16px;">
+                        <div class="card">
+                            <h3 style="font-size: 14px; color: #38bdf8; text-transform: uppercase; margin-bottom: 12px;">Solicitar Retiro</h3>
+                            <label>Monto a retirar (Min $1.000)</label>
+                            <input type="number" id="retMonto" placeholder="Ej: 5000">
+                            <label>CBU / CVU o Alias</label>
+                            <input type="text" id="retCbu" placeholder="Tu alias o cbu">
+                            <button onclick="alert('Retiro solicitado correctamente')" class="btn">Confirmar Retiro</button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            app.innerHTML = `
+                <div>
+                    <div style="background: #0f172a; padding: 16px; border-bottom: 1px solid #1e293b; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10;">
+                        <span style="font-size: 13px; font-weight: bold; color: #38bdf8;">${currentUser.email}</span>
+                        <button onclick="logout()" style="background: none; border: none; color: #f43f5e; font-size: 11px; font-weight: bold; cursor: pointer;">SALIR</button>
+                    </div>
+                    ${mainContent}
+                </div>
+                <div class="nav">
+                    <button onclick="setView('home')" class="${currentView === 'home' ? 'active' : ''}"><span>📱</span> Panel</button>
+                    <button onclick="setView('recharges')" class="${currentView === 'recharges' ? 'active' : ''}"><span>💳</span> Cargar</button>
+                    <button onclick="setView('withdraws')" class="${currentView === 'withdraws' ? 'active' : ''}"><span>🏦</span> Retirar</button>
+                </div>
+            `;
+        }
+
+        function handleAuth(e) {
+            e.preventDefault();
+            const email = document.getElementById('emailInput').value.trim().toLowerCase();
+            const pass = document.getElementById('passInput').value;
+
+            currentUser = { email, balance: 15000 };
+            currentView = 'home';
+            render();
+        }
+
+        function toggleAuthForm() {}
+        function toggleAuthMode() {
+            isRegisterMode = !isRegisterMode;
+            render();
+        }
+
+        function setView(v) {
+            currentView = v;
+            render();
+        }
+
+        function logout() {
+            currentUser = null;
+            render();
+        }
+
+        function buyProduct(price) {
+            if ((currentUser.balance || 0) < price) {
+                alert('Saldo insuficiente');
+                return;
+            }
+            currentUser.balance -= price;
+            alert('¡Plan adquirido con éxito!');
+            render();
+        }
+
+        render();
+    </script>
 </body>
 </html>
