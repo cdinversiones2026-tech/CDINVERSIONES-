@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CDINVERSIONES - Panel Administrador</title>
+    <title>CDINVERSIONES - Panel Oficial</title>
     <!-- Firebase Compat 9.23.0 -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -13,17 +13,35 @@
         
         .app-container { width: 100%; max-width: 440px; min-height: 100vh; background: #020617; border-left: 1px solid #1e293b; border-right: 1px solid #1e293b; padding-bottom: 80px; position: relative; }
         
+        /* Modal */
+        .cd-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(2, 6, 23, 0.9); backdrop-filter: blur(6px); display: none; justify-content: center; align-items: center; z-index: 10000; padding: 16px; }
+        .cd-modal-card { background: #0f172a; border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 16px; padding: 24px 20px; max-width: 400px; width: 100%; box-shadow: 0 0 25px rgba(56, 189, 248, 0.2); text-align: center; color: #f8fafc; }
+        .cd-badge-alert { background: rgba(56, 189, 248, 0.1); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); font-size: 10px; font-weight: 800; letter-spacing: 1px; padding: 4px 10px; border-radius: 20px; display: inline-block; margin-bottom: 8px; }
+        .cd-modal-header h2 { margin: 4px 0 16px 0; font-size: 18px; font-weight: 800; color: #ffffff; }
+        .cd-modal-list { list-style: none; padding: 0; margin: 0 0 20px 0; text-align: left; }
+        .cd-modal-list li { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: #1e293b; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 10px; margin-bottom: 8px; font-size: 12px; }
+        .cd-modal-list strong { display: block; color: #94a3b8; font-size: 10px; text-transform: uppercase; }
+        .cd-modal-list span { color: #38bdf8; font-weight: 700; }
+        .cd-btn-primary { width: 100%; background: linear-gradient(90deg, #38bdf8, #2563eb); color: #020617; border: none; padding: 12px; font-size: 13px; font-weight: 900; border-radius: 8px; cursor: pointer; text-transform: uppercase; }
+
+        /* UI Components */
         .card { background: #0f172a; border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
         .btn { width: 100%; background: linear-gradient(90deg, #38bdf8, #2563eb); color: #020617; border: none; padding: 12px; font-weight: 900; border-radius: 8px; cursor: pointer; text-transform: uppercase; font-size: 12px; }
         .btn-emerald { background: linear-gradient(90deg, #10b981, #059669); color: #020617; }
         .btn-rose { background: #e11d48; color: #fff; }
+        .btn-outline { background: #1e293b; color: #38bdf8; border: 1px solid #334155; }
         
         input, select { width: 100%; background: #020617; color: #fff; padding: 12px; border-radius: 8px; border: 1px solid #334155; font-size: 12px; margin-top: 4px; margin-bottom: 10px; }
         label { display: block; font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase; }
 
         .header { background: #0f172a; padding: 14px 16px; border-bottom: 1px solid #1e293b; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 50; }
         
-        /* Barra de navegación exclusiva para el Admin */
+        /* Navegación usuario normal */
+        .nav { position: fixed; bottom: 0; left: 0; right: 0; max-width: 440px; margin: 0 auto; background: rgba(15, 23, 42, 0.95); border-top: 1px solid #1e293b; display: flex; justify-content: space-around; padding: 10px 0; z-index: 100; }
+        .nav button { background: none; border: none; color: #64748b; font-size: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; font-weight: 600; }
+        .nav button.active { color: #38bdf8; font-weight: 800; }
+
+        /* Navegación administrador */
         .admin-nav { position: fixed; bottom: 0; left: 0; right: 0; max-width: 440px; margin: 0 auto; background: rgba(15, 23, 42, 0.98); border-top: 1px solid #1e293b; display: flex; justify-content: space-around; padding: 10px 0; z-index: 100; }
         .admin-nav button { background: none; border: none; color: #64748b; font-size: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; font-weight: 600; }
         .admin-nav button.active { color: #38bdf8; font-weight: 800; }
@@ -31,9 +49,29 @@
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
         .flex-between { display: flex; justify-content: space-between; align-items: center; }
+        .badge { background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; border: 1px solid rgba(56, 189, 248, 0.3); }
     </style>
 </head>
 <body>
+
+    <!-- Modal de Avisos -->
+    <div id="modalAviso" class="cd-modal-overlay">
+      <div class="cd-modal-card">
+        <div class="cd-modal-header">
+          <span class="cd-badge-alert">AVISO IMPORTANTE</span>
+          <h2>Términos de Operación</h2>
+        </div>
+        <ul class="cd-modal-list">
+          <li><div><strong>Mínimo de recarga</strong><span>$6.500 ARS</span></div></li>
+          <li><div><strong>Mínimo a retirar</strong><span>$1.000 ARS</span></div></li>
+          <li><div><strong>Comisión al retirar</strong><span>15%</span></div></li>
+          <li><div><strong>Frecuencia de retiro</strong><span>1 retiro cada 48 hs</span></div></li>
+          <li><div><strong>Horarios de retiros</strong><span>Mar a Vie de 10 a 18 hs</span></div></li>
+          <li><div><strong>Requisito referidos</strong><span>Tener 1 plan activo</span></div></li>
+        </ul>
+        <button class="cd-btn-primary" onclick="cerrarAviso()">ENTENDIDO / ACEPTAR</button>
+      </div>
+    </div>
 
     <div id="app" class="app-container"></div>
 
@@ -41,6 +79,8 @@
         let db = null;
         const ADMIN_EMAIL = "cdinversiones2026@gmail.com";
         const ADMIN_PASS = "somos.9";
+        const BANK_CBU = "0000013000032204321913";
+        const TELEGRAM_LINK = "https://t.me/+qniSEJG2aDM2ZWQ5"; 
         const WITHDRAW_FEE = 0.15;
         const MIN_RECHARGE = 6500;
         const MIN_WITHDRAW = 1000;
@@ -61,7 +101,9 @@
         ];
 
         let currentUser = null;
+        let currentView = 'home';
         let adminView = 'withdraws';
+        let isRegisterMode = false;
         let usersList = [];
         let rechargesList = [];
         let withdrawsList = [];
@@ -84,6 +126,17 @@
             } catch(e) { console.warn("Firebase offline:", e); }
         }
 
+        function getUrlRefCode() {
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                return (urlParams.get('ref') || '').trim().toUpperCase();
+            } catch(e) { return ''; }
+        }
+
+        function generateRefCode() {
+            return 'CD-' + Math.random().toString(36).substring(2, 7).toUpperCase();
+        }
+
         function formatTimeRemaining(ms) {
             if (ms <= 0) return "00:00:00";
             const totalSecs = Math.floor(ms / 1000);
@@ -93,39 +146,108 @@
             return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
         }
 
+        function mostrarAviso() { document.getElementById("modalAviso").style.display = "flex"; }
+        function cerrarAviso() { document.getElementById("modalAviso").style.display = "none"; }
+        function setView(v) { currentView = v; render(); }
         function setAdminView(v) { adminView = v; render(); }
         function logout() { currentUser = null; render(); }
+
+        function checkCompletedPlans() {
+            if (!currentUser || currentUser.email === ADMIN_EMAIL || !currentUser.activePlans || currentUser.activePlans.length === 0 || !db) return;
+            const now = Date.now();
+            let updatedPlans = [];
+            let finishedPlansList = currentUser.finishedPlans || [];
+            let totalYield = 0;
+            let changed = false;
+
+            currentUser.activePlans.forEach(plan => {
+                const durationMs = plan.durationHours ? (plan.durationHours * 3600 * 1000) : ((plan.days || 3) * 24 * 3600 * 1000);
+                if (now >= (plan.boughtAt + durationMs)) {
+                    totalYield += plan.total;
+                    finishedPlansList.push({ ...plan, finishedAt: now });
+                    changed = true;
+                } else {
+                    updatedPlans.push(plan);
+                }
+            });
+
+            if (changed) {
+                const newBal = (currentUser.balance || 0) + totalYield;
+                currentUser.balance = newBal;
+                currentUser.activePlans = updatedPlans;
+                currentUser.finishedPlans = finishedPlansList;
+                db.collection('users').doc(currentUser.email).update({
+                    balance: newBal,
+                    activePlans: updatedPlans,
+                    finishedPlans: finishedPlansList
+                });
+            }
+        }
 
         function startLiveTimers() {
             if (timerInterval) clearInterval(timerInterval);
             timerInterval = setInterval(() => {
+                if (currentUser && currentUser.email !== ADMIN_EMAIL) {
+                    checkCompletedPlans();
+                }
                 const now = Date.now();
+                
                 document.querySelectorAll('.plan-timer').forEach(el => {
                     const end = parseInt(el.getAttribute('data-end'));
                     const rem = end - now;
                     if (rem <= 0) el.innerText = "¡Completado!";
                     else el.innerText = formatTimeRemaining(rem);
                 });
+
+                const checkinEl = document.getElementById('checkin-timer');
+                if (checkinEl && currentUser) {
+                    const rem = (24 * 3600 * 1000) - (now - (currentUser.lastCheckInTimestamp || 0));
+                    if (rem <= 0) render();
+                    else checkinEl.innerText = formatTimeRemaining(rem);
+                }
             }, 1000);
+        }
+
+        function calcularMontoFinal() {
+            const inputMonto = document.getElementById("witAmt");
+            const detalleCalculo = document.getElementById("detalle-calculo");
+            if (!inputMonto || !detalleCalculo) return;
+
+            const monto = parseFloat(inputMonto.value);
+            if (isNaN(monto) || monto <= 0) {
+                detalleCalculo.innerHTML = "Comisión (15%): $0 ARS | Neto a recibir: <strong>$0 ARS</strong>";
+                return;
+            }
+
+            const comision = monto * WITHDRAW_FEE;
+            const montoNeto = monto - comision;
+            detalleCalculo.innerHTML = `Comisión (15%): <strong style="color:#fbbf24;">-$${comision.toLocaleString()} ARS</strong> | Neto a recibir: <strong style="color:#34d399;">$${montoNeto.toLocaleString()} ARS</strong>`;
         }
 
         function render() {
             const app = document.getElementById('app');
             if (!app) return;
 
+            const autoRef = getUrlRefCode();
+            if (autoRef && !currentUser && !isRegisterMode) isRegisterMode = true;
+
             if (!currentUser) {
                 app.innerHTML = `
                     <div style="padding:24px; min-height:100vh; display:flex; align-items:center;">
                         <div class="card" style="width:100%; text-align:center;">
                             <h1 style="color:#38bdf8; font-size:24px; font-weight:900; margin-bottom:4px;">CDINVERSIONES</h1>
-                            <p style="color:#94a3b8; font-size:12px; margin-bottom:20px;">Panel Administrativo</p>
+                            <p style="color:#94a3b8; font-size:12px; margin-bottom:20px;">Plataforma Oficial</p>
                             <form id="authForm" style="text-align:left;">
                                 <label>Correo Electrónico</label>
                                 <input type="email" id="emailInput" required placeholder="correo@ejemplo.com">
                                 <label>Contraseña</label>
                                 <input type="password" id="passInput" required placeholder="••••••••">
-                                <button type="submit" class="btn" style="margin-top:10px;">Iniciar Sesión Admin</button>
+                                ${isRegisterMode ? '<label>Código Referido</label><input type="text" id="refInput" value="'+autoRef+'" '+(autoRef?'readonly':'')+'>' : ''}
+                                <button type="submit" class="btn" style="margin-top:10px;">${isRegisterMode ? 'Crear Cuenta' : 'Iniciar Sesión'}</button>
                             </form>
+                            <button onclick="isRegisterMode=!isRegisterMode; render();" style="background:none; border:none; color:#38bdf8; font-size:12px; margin-top:16px; cursor:pointer;">
+                                ${isRegisterMode ? '¿Ya tienes cuenta? Inicia Sesión' : '¿No tienes cuenta? Regístrate aquí'}
+                            </button>
                         </div>
                     </div>
                 `;
@@ -133,133 +255,289 @@
                 return;
             }
 
-            const pendW = withdrawsList.filter(w => w.status === 'PENDING');
-            const pendR = rechargesList.filter(r => r.status === 'PENDING');
+            // VISTA ADMINISTRADOR
+            if (currentUser.email === ADMIN_EMAIL) {
+                const pendW = withdrawsList.filter(w => w.status === 'PENDING');
+                const pendR = rechargesList.filter(r => r.status === 'PENDING');
 
-            let adminContent = '';
-
-            if (adminView === 'withdraws') {
-                adminContent = `
-                    <h3 style="color:#38bdf8; font-size:14px; font-weight:800; margin-bottom:14px;">🏦 RETIROS PENDIENTES (${pendW.length})</h3>
-                    ${pendW.map(w => {
-                        const gross = w.amount || 0;
-                        const fee = gross * WITHDRAW_FEE;
-                        const net = gross - fee;
-                        return `
-                            <div class="card" style="border-color: rgba(56, 189, 248, 0.4);">
-                                <p style="color:#fff; font-weight:700; font-size:12px; margin-bottom:6px;">${w.userEmail}</p> <div class="grid-3" style="margin:8px 0; background:#020617; padding:8px; border-radius:6px; text-align:center;"> <div><span style="color:#94a3b8; font-size:9px;">Solicitado</span><br><strong>$${gross}</strong></div>
-                                    <div><span style="color:#94a3b8; font-size:9px;">Comisión</span><br><strong style="color:#fbbf24;">-$${fee}</strong></div> <div><span style="color:#94a3b8; font-size:9px;">Neto</span><br><strong style="color:#34d399;">$${net}</strong></div>
+                let adminContent = '';
+                if (adminView === 'withdraws') {
+                    adminContent = `
+                        <h3 style="color:#38bdf8; font-size:14px; font-weight:800; margin-bottom:14px;">🏦 RETIROS PENDIENTES (${pendW.length})</h3>
+                        ${pendW.map(w => {
+                            const gross = w.amount || 0;
+                            const fee = gross * WITHDRAW_FEE;
+                            const net = gross - fee;
+                            return `
+                                <div class="card" style="border-color: rgba(56, 189, 248, 0.4);">
+                                    <p style="color:#fff; font-weight:700; font-size:12px; margin-bottom:6px;">${w.userEmail}</p> <div class="grid-3" style="margin:8px 0; background:#020617; padding:8px; border-radius:6px; text-align:center;"> <div><span style="color:#94a3b8; font-size:9px;">Solicitado</span><br><strong>$${gross}</strong></div>
+                                        <div><span style="color:#94a3b8; font-size:9px;">Comisión</span><br><strong style="color:#fbbf24;">-$${fee}</strong></div> <div><span style="color:#94a3b8; font-size:9px;">Neto</span><br><strong style="color:#34d399;">$${net}</strong></div>
+                                    </div>
+                                    <p style="font-family:monospace; color:#38bdf8; margin-bottom:10px; font-size:11px;">CBU: ${w.cbu}</p>
+                                    <div class="grid-2">
+                                        <button onclick="approveWithdraw('${w.id}')" class="btn btn-emerald" style="padding:8px; font-size:10px;">Completar</button>
+                                        <button onclick="rejectWithdraw('${w.id}', '${w.userEmail}',${gross})" class="btn btn-rose" style="padding:8px; font-size:10px;">Rechazar/Reembolsar</button>
+                                    </div>
                                 </div>
-                                <p style="font-family:monospace; color:#38bdf8; margin-bottom:10px; font-size:11px;">CBU: ${w.cbu}</p>
+                            `;
+                        }).join('')}
+                        ${pendW.length === 0 ? '<p style="font-size:12px; color:#64748b; text-align:center; margin-top:40px;">No hay solicitudes de retiros pendientes.</p>' : ''}
+                    `;
+                } else if (adminView === 'recharges') {
+                    adminContent = `
+                        <h3 style="color:#fbbf24; font-size:14px; font-weight:800; margin-bottom:14px;">💳 CARGAS PENDIENTES (${pendR.length})</h3>
+                        ${pendR.map(r => `
+                            <div class="card" style="border-color: rgba(251, 191, 36, 0.4);">
+                                <p style="color:#fff; font-size:12px; font-weight:700; margin-bottom:6px;">${r.userEmail}</p> <p style="color:#34d399; font-size:13px; font-weight:900; margin-bottom:8px;">Monto: $${r.amount} ARS</p>
+                                <p style="color:#94a3b8; font-size:11px; margin-bottom:10px;">Nº Comprobante: <strong style="color:#fff;">${r.proofUrl || 'No especificado'}</strong></p>
                                 <div class="grid-2">
-                                    <button onclick="approveWithdraw('${w.id}')" class="btn btn-emerald" style="padding:8px; font-size:10px;">Completar</button>
-                                    <button onclick="rejectWithdraw('${w.id}', '${w.userEmail}',${gross})" class="btn btn-rose" style="padding:8px; font-size:10px;">Rechazar/Reembolsar</button>
+                                    <button onclick="approveRecharge('${r.id}', '${r.userEmail}',${r.amount})" class="btn btn-emerald" style="padding:8px; font-size:10px;">Aprobar Carga</button>
+                                    <button onclick="rejectRecharge('${r.id}')" class="btn btn-rose" style="padding:8px; font-size:10px;">Rechazar Carga</button>
                                 </div>
                             </div>
-                        `;
-                    }).join('')}
-                    ${pendW.length === 0 ? '<p style="font-size:12px; color:#64748b; text-align:center; margin-top:40px;">No hay solicitudes de retiros pendientes.</p>' : ''}
+                        `).join('')}
+                        ${pendR.length === 0 ? '<p style="font-size:12px; color:#64748b; text-align:center; margin-top:40px;">No hay solicitudes de cargas pendientes.</p>' : ''}
+                    `;
+                } else if (adminView === 'users') {
+                    adminContent = `
+                        <h3 style="color:#38bdf8; font-size:14px; font-weight:800; margin-bottom:14px;">👥 GESTIÓN DE USUARIOS (${usersList.length})</h3>
+                        
+                        <div class="card" style="border-color: rgba(56, 189, 248, 0.4); margin-bottom: 20px;">
+                            <h4 style="font-size:11px; color:#38bdf8; margin-bottom:8px; font-weight:900;">⚡ ASIGNAR PLAN RÁPIDO</h4>
+                            <label>Correo del usuario</label>
+                            <input type="email" id="adminTargetEmail" placeholder="usuario@gmail.com">
+                            <label>Seleccionar Plan</label>
+                            <select id="adminSelectPlan">
+                                ${PRODUCTS.map(p => `<option value="${p.id}">${p.name} ($${p.price.toLocaleString()})</option>`).join('')}
+                            </select>
+                            <button onclick="adminAssignPlan()" class="btn btn-emerald" style="margin-top:6px; padding:8px; font-size:10px;">Asignar Plan Activo</button>
+                        </div>
+
+                        ${usersList.map(u => {
+                            const refCount = usersList.filter(refU => refU.referredBy && u.refCode && refU.referredBy === u.refCode).length;
+                            const refBal = u.refBalance || 0;
+                            const activePlans = u.activePlans || [];
+                            const now = Date.now();
+
+                            return `
+                                <div class="card">
+                                    <p style="font-weight:700; color:#fff; font-size:12px; margin-bottom:4px;">${u.email}</p>
+                                    <div style="display:flex; justify-content:space-between; margin-bottom:6px; color:#94a3b8; font-size:10px;">
+                                        <span>👥 Referidos: <strong style="color:#38bdf8;">${refCount}</strong></span> <span>🎁 Bono Referidos: <strong style="color:#34d399;">$${refBal.toLocaleString()} ARS</strong></span>
+                                    </div>
+                                    
+                                    <div style="background:#020617; padding:8px; border-radius:6px; margin-bottom:8px;">
+                                        <p style="color:#38bdf8; font-weight:700; font-size:10px; margin-bottom:4px;">📦 Planes Activos (${activePlans.length}):</p>${activePlans.map(p => {
+                                            const durationMs = p.durationHours ? (p.durationHours * 3600 * 1000) : ((p.days || 3) * 24 * 3600 * 1000);
+                                            const end = p.boughtAt + durationMs;
+                                            const rem = end - now;
+                                            const fechaCompra = new Date(p.boughtAt).toLocaleString();
+                                            const fechaVencimiento = new Date(end).toLocaleString();
+                                            return `
+                                                <div style="background:#0f172a; padding:8px; border-radius:4px; margin-top:4px; font-size:10px; border: 1px solid rgba(251, 191, 36, 0.3);">
+                                                    <p style="color:#fff; font-weight:700; font-size:11px;">${p.name}</p>
+                                                    <p style="color:#94a3b8; margin:2px 0;">Adquirido: ${fechaCompra}</p>
+                                                    <p style="color:#cbd5e1; margin:2px 0;">Vence: ${fechaVencimiento}</p>
+                                                    <p style="color:#fbbf24; font-family:monospace; font-weight:700; font-size:11px; margin-top:4px;">⏰ Tiempo restante: <span class="plan-timer" data-end="${end}">${formatTimeRemaining(rem)}</span></p>
+                                                </div>
+                                            `;
+                                        }).join('')}
+                                        ${activePlans.length === 0 ? '<p style="color:#64748b; font-size:10px;">Ninguno activo.</p>' : ''}
+                                    </div>
+
+                                    <label style="font-size:10px;">Saldo Principal ($ ARS)</label>
+                                    <div style="display:flex; gap:6px; margin-top:4px;">
+                                        <input type="number" id="bal_${u.id}" value="${u.balance || 0}" style="margin:0; padding:6px 8px;">
+                                        <button onclick="saveBal('${u.email}', 'bal_${u.id}')" class="btn" style="padding:6px 10px; width:auto; font-size:9px;">Guardar</button>
+                                        <button onclick="delUser('${u.email}')" class="btn btn-rose" style="padding:6px 10px; width:auto; font-size:9px;">Borrar</button>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    `;
+                }
+
+                app.innerHTML = `
+                    <div class="header">
+                        <span style="font-size:11px; font-weight:800; color:#38bdf8;">ADMINISTRACIÓN CENTRAL</span>
+                        <button onclick="logout()" style="background:none; border:none; color:#f43f5e; font-size:11px; font-weight:700; cursor:pointer;">SALIR</button>
+                    </div>
+                    <div style="padding:16px;">
+                        ${adminContent}
+                    </div>
+                    <div class="admin-nav">
+                        <button onclick="setAdminView('withdraws')" class="${adminView === 'withdraws' ? 'active' : ''}">
+                            <span style="font-size:16px;">🏦</span>
+                            <span>Retiros (${pendW.length})</span>
+                        </button>
+                        <button onclick="setAdminView('recharges')" class="${adminView === 'recharges' ? 'active' : ''}">
+                            <span style="font-size:16px;">💳</span>
+                            <span>Cargas (${pendR.length})</span>
+                        </button>
+                        <button onclick="setAdminView('users')" class="${adminView === 'users' ? 'active' : ''}">
+                            <span style="font-size:16px;">👥</span>
+                            <span>Usuarios</span>
+                        </button>
+                    </div>
                 `;
-            } else if (adminView === 'recharges') {
-                adminContent = `
-                    <h3 style="color:#fbbf24; font-size:14px; font-weight:800; margin-bottom:14px;">💳 CARGAS PENDIENTES (${pendR.length})</h3>
-                    ${pendR.map(r => `
-                        <div class="card" style="border-color: rgba(251, 191, 36, 0.4);">
-                            <p style="color:#fff; font-size:12px; font-weight:700; margin-bottom:6px;">${r.userEmail}</p> <p style="color:#34d399; font-size:13px; font-weight:900; margin-bottom:8px;">Monto: $${r.amount} ARS</p>
-                            <p style="color:#94a3b8; font-size:11px; margin-bottom:10px;">Nº Comprobante: <strong style="color:#fff;">${r.proofUrl || 'No especificado'}</strong></p>
-                            <div class="grid-2">
-                                <button onclick="approveRecharge('${r.id}', '${r.userEmail}',${r.amount})" class="btn btn-emerald" style="padding:8px; font-size:10px;">Aprobar Carga</button>
-                                <button onclick="rejectRecharge('${r.id}')" class="btn btn-rose" style="padding:8px; font-size:10px;">Rechazar Carga</button>
+                startLiveTimers();
+                return;
+            }
+
+            // VISTA USUARIO NORMAL
+            checkCompletedPlans();
+            let mainContent = '';
+            const now = Date.now();
+
+            if (currentView === 'home') {
+                const activePlans = currentUser.activePlans || [];
+                const finishedPlans = currentUser.finishedPlans || [];
+                const hasActiveFlash = activePlans.some(p => p.isFlash);
+                const availableProducts = PRODUCTS.filter(p => !p.isFlash || hasActiveFlash);
+
+                const lastCheckIn = currentUser.lastCheckInTimestamp || 0;
+                const checkInAvailable = (now - lastCheckIn) >= (24 * 3600 * 1000);
+                const checkInRem = (24 * 3600 * 1000) - (now - lastCheckIn);
+
+                mainContent = `
+                    <div style="padding:16px;">
+                        <div class="card" style="background:linear-gradient(135deg, #0f172a, #1e3a8a);">
+                            <p style="font-size:10px; color:#38bdf8; font-weight:700;">SALDO DISPONIBLE</p>
+                            <h1 style="font-size:32px; font-weight:900; margin:6px 0;">$${(currentUser.balance || 0).toLocaleString()} ARS</h1>
+                        </div>
+
+                        <div class="grid-2" style="margin-bottom:14px;">
+                            <button onclick="setView('recharges')" class="btn btn-emerald">Cargar Saldo</button>
+                            <button onclick="setView('withdraws')" class="btn">Retirar</button>
+                        </div>
+
+                        <!-- Check-in Diario -->
+                        <div class="card flex-between" style="padding:12px 16px;">
+                            <div>
+                                <h3 style="font-weight:700; color:#38bdf8; font-size:13px;">Check-in Diario</h3>
+                                <p style="font-size:10px; color:#94a3b8;">Reclama $100 ARS cada 24hs</p>
+                            </div>
+                            <div>
+                                ${checkInAvailable ? `
+                                    <button onclick="handleCheckIn()" class="btn btn-emerald" style="padding:6px 12px; font-size:11px; width:auto;">Reclamar</button>
+                                ` : `
+                                    <span style="font-size:11px; color:#38bdf8; font-family:monospace; font-weight:700;">⏱️ <span id="checkin-timer">${formatTimeRemaining(checkInRem)}</span></span>
+                                `}
                             </div>
                         </div>
-                    `).join('')}
-                    ${pendR.length === 0 ? '<p style="font-size:12px; color:#64748b; text-align:center; margin-top:40px;">No hay solicitudes de cargas pendientes.</p>' : ''}
-                `;
-            } else if (adminView === 'users') {
-                adminContent = `
-                    <h3 style="color:#38bdf8; font-size:14px; font-weight:800; margin-bottom:14px;">👥 GESTIÓN DE USUARIOS (${usersList.length})</h3>
-                    
-                    <!-- Asignación rápida de plan -->
-                    <div class="card" style="border-color: rgba(56, 189, 248, 0.4); margin-bottom: 20px;">
-                        <h4 style="font-size:11px; color:#38bdf8; margin-bottom:8px; font-weight:900;">⚡ ASIGNAR PLAN RÁPIDO</h4>
-                        <label>Correo del usuario</label>
-                        <input type="email" id="adminTargetEmail" placeholder="usuario@gmail.com">
-                        <label>Seleccionar Plan</label>
-                        <select id="adminSelectPlan">
-                            ${PRODUCTS.map(p => `<option value="${p.id}">${p.name} ($${p.price.toLocaleString()})</option>`).join('')}
-                        </select>
-                        <button onclick="adminAssignPlan()" class="btn btn-emerald" style="margin-top:6px; padding:8px; font-size:10px;">Asignar Plan Activo</button>
+
+                        <!-- Planes Activos -->
+                        <div class="card">
+                            <h3 style="font-size:12px; color:#38bdf8; font-weight:800; margin-bottom:10px;">PLANES ACTIVOS (${activePlans.length})</h3>
+                            ${activePlans.map(p => {
+                                const durationMs = p.durationHours ? (p.durationHours * 3600 * 1000) : ((p.days || 3) * 24 * 3600 * 1000);
+                                const end = p.boughtAt + durationMs;
+                                return `
+                                    <div style="background:#020617; padding:10px; border-radius:8px; margin-bottom:8px; font-size:11px;">
+                                        <p style="font-weight:700; color:#fff;">${p.name}</p> <p style="color:#34d399; margin:2px 0;">Retorno: $${p.total.toLocaleString()} ARS</p>
+                                        <p style="color:#fbbf24; font-family:monospace;">⏳ Restante: <span class="plan-timer" data-end="${end}">${formatTimeRemaining(end - now)}</span></p>
+                                    </div>
+                                `;
+                            }).join('')}
+                            ${activePlans.length === 0 ? '<p style="font-size:11px; color:#64748b;">No tienes planes activos.</p>' : ''}
+                        </div>
+
+                        <!-- Planes Terminados -->
+                        <div class="card">
+                            <h3 style="font-size:12px; color:#34d399; font-weight:800; margin-bottom:10px;">PLANES TERMINADOS (${finishedPlans.length})</h3>
+                            ${finishedPlans.map(p => `
+                                <div style="background:#020617; padding:10px; border-radius:8px; margin-bottom:8px; font-size:11px; opacity:0.8;">
+                                    <p style="font-weight:700; color:#94a3b8; text-decoration:line-through;">${p.name}</p> <p style="color:#34d399; margin:2px 0;">Retorno Obtenido: $${p.total.toLocaleString()} ARS</p>
+                                </div>
+                            `).join('')}
+                            ${finishedPlans.length === 0 ? '<p style="font-size:11px; color:#64748b;">Aún no tienes planes terminados.</p>' : ''}
+                        </div>
+
+                        <h3 style="font-size:12px; color:#38bdf8; font-weight:800; margin:14px 0 10px 0;">PLANES DISPONIBLES</h3>
+                        ${availableProducts.map(p => {
+                            const tiempoTexto = p.durationHours ? `${p.durationHours} Horas` : `${p.days} Días`;
+                            return `
+                                <div class="card">
+                                    <div class="flex-between">
+                                        <h4 style="font-size:13px; font-weight:700;">${p.name}</h4> <span class="badge">$${p.price.toLocaleString()} ARS</span>
+                                    </div>
+                                    <p style="font-size:11px; color:#cbd5e1; margin-top:6px;">⏱️ Duración: <strong style="color:#38bdf8;">${tiempoTexto}</strong></p> <div class="flex-between" style="margin-top:10px; padding-top:8px; border-top:1px solid #1e293b;"> <span style="font-size:12px; color:#34d399; font-weight:700;">Retorno: $${p.total.toLocaleString()} ARS</span>
+                                        <button onclick="buyProduct(${p.id})" class="btn" style="width:auto; padding:6px 12px; font-size:10px;">Adquirir</button>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
                     </div>
-
-                    ${usersList.map(u => {
-                        const refCount = usersList.filter(refU => refU.referredBy && u.refCode && refU.referredBy === u.refCode).length;
-                        const refBal = u.refBalance || 0;
-                        const activePlans = u.activePlans || [];
-                        const now = Date.now();
-
-                        return `
-                            <div class="card">
-                                <p style="font-weight:700; color:#fff; font-size:12px; margin-bottom:4px;">${u.email}</p>
-                                <div style="display:flex; justify-content:space-between; margin-bottom:6px; color:#94a3b8; font-size:10px;">
-                                    <span>👥 Referidos: <strong style="color:#38bdf8;">${refCount}</strong></span> <span>🎁 Bono Referidos: <strong style="color:#34d399;">$${refBal.toLocaleString()} ARS</strong></span>
-                                </div>
-                                
-                                <!-- Planes Activos y Reloj en Vivo -->
-                                <div style="background:#020617; padding:8px; border-radius:6px; margin-bottom:8px;">
-                                    <p style="color:#38bdf8; font-weight:700; font-size:10px; margin-bottom:4px;">📦 Planes Activos (${activePlans.length}):</p>${activePlans.map(p => {
-                                        const durationMs = p.durationHours ? (p.durationHours * 3600 * 1000) : ((p.days || 3) * 24 * 3600 * 1000);
-                                        const end = p.boughtAt + durationMs;
-                                        const rem = end - now;
-                                        const fechaCompra = new Date(p.boughtAt).toLocaleString();
-                                        const fechaVencimiento = new Date(end).toLocaleString();
-                                        return `
-                                            <div style="background:#0f172a; padding:8px; border-radius:4px; margin-top:4px; font-size:10px; border: 1px solid rgba(251, 191, 36, 0.3);">
-                                                <p style="color:#fff; font-weight:700; font-size:11px;">${p.name}</p>
-                                                <p style="color:#94a3b8; margin:2px 0;">Adquirido: ${fechaCompra}</p>
-                                                <p style="color:#cbd5e1; margin:2px 0;">Vence: ${fechaVencimiento}</p>
-                                                <p style="color:#fbbf24; font-family:monospace; font-weight:700; font-size:11px; margin-top:4px;">⏰ Tiempo restante: <span class="plan-timer" data-end="${end}">${formatTimeRemaining(rem)}</span></p>
-                                            </div>
-                                        `;
-                                    }).join('')}
-                                    ${activePlans.length === 0 ? '<p style="color:#64748b; font-size:10px;">Ninguno activo.</p>' : ''}
-                                </div>
-
-                                <label style="font-size:10px;">Saldo Principal ($ ARS)</label>
-                                <div style="display:flex; gap:6px; margin-top:4px;">
-                                    <input type="number" id="bal_${u.id}" value="${u.balance || 0}" style="margin:0; padding:6px 8px;">
-                                    <button onclick="saveBal('${u.email}', 'bal_${u.id}')" class="btn" style="padding:6px 10px; width:auto; font-size:9px;">Guardar</button>
-                                    <button onclick="delUser('${u.email}')" class="btn btn-rose" style="padding:6px 10px; width:auto; font-size:9px;">Borrar</button>
-                                </div>
-                            </div>
-                        `;
-                    }).join('')}
+                `;
+            } else if (currentView === 'referrals') {
+                const refCode = currentUser.refCode || '';
+                const siteUrl = window.location.origin + window.location.pathname + (refCode ? '?ref=' + refCode : '');
+                const myRefs = usersList.filter(u => refCode && u.referredBy === refCode);
+                mainContent = `
+                    <div style="padding:16px;">
+                        <div class="card">
+                            <h3 style="color:#38bdf8; font-size:14px; font-weight:800; margin-bottom:8px;">SISTEMA DE REFERIDOS</h3>
+                            <p style="font-size:12px; color:#cbd5e1; margin-bottom:12px;">Comparte tu enlace y gana por cada invitado.</p>
+                            <input type="text" value="${siteUrl}" readonly style="font-size:10px;">
+                            <button onclick="navigator.clipboard.writeText('${siteUrl}'); alert('Enlace copiado');" class="btn" style="margin-top:6px;">Copiar Enlace</button>
+                        </div>
+                        <div class="card">
+                            <h3 style="color:#38bdf8; font-size:12px; font-weight:800; margin-bottom:10px;">TUS REFERIDOS (${myRefs.length})</h3>
+                            ${myRefs.map(u => `<div style="background:#020617; padding:8px; border-radius:6px; margin-bottom:6px; font-size:11px;">${u.email}</div>`).join('')}
+                            ${myRefs.length === 0 ? '<p style="font-size:11px; color:#64748b;">No tienes referidos aún.</p>' : ''}
+                        </div>
+                    </div>
+                `;
+            } else if (currentView === 'recharges') {
+                mainContent = `
+                    <div style="padding:16px;">
+                        <div class="card">
+                            <h3 style="color:#38bdf8; font-size:14px; font-weight:800; margin-bottom:12px;">CARGAR SALDO</h3>
+                            <label>CBU Oficial</label>
+                            <p style="font-family:monospace; color:#38bdf8; font-size:13px; font-weight:700; margin-bottom:10px;">${BANK_CBU}</p>
+                            <a href="${TELEGRAM_LINK}" target="_blank" class="btn btn-outline" style="display:block; text-align:center; text-decoration:none; margin-bottom:12px;">Enviar Comprobante a Telegram</a>
+                            <form id="recForm">
+                                <label>Monto Transferido</label>
+                                <input type="number" id="recAmt" min="${MIN_RECHARGE}" required placeholder="Mínimo $6.500">
+                                <label>Nº Comprobante</label>
+                                <input type="text" id="recProof" required placeholder="Número de comprobante">
+                                <button type="submit" class="btn btn-emerald">Registrar Solicitud</button>
+                            </form>
+                        </div>
+                    </div>
+                `;
+            } else if (currentView === 'withdraws') {
+                mainContent = `
+                    <div style="padding:16px;">
+                        <div class="card">
+                            <h3 style="color:#38bdf8; font-size:14px; font-weight:800; margin-bottom:12px;">SOLICITAR RETIRO</h3>
+                            <label>Monto a Retirar (Comisión 15%)</label>
+                            <input type="number" id="witAmt" min="${MIN_WITHDRAW}" required placeholder="Mínimo $1.000" oninput="calcularMontoFinal()">
+                            <p id="detalle-calculo" style="font-size:11px; color:#cbd5e1; margin:6px 0 12px 0; font-family:monospace;">Comisión (15%): $0 ARS | Neto a recibir: <strong>$0 ARS</strong></p>
+                            <label>CBU / CVU o Alias</label>
+                            <input type="text" id="witCbu" required placeholder="Ingresa tu CBU/Alias">
+                            <button onclick="solicitarRetiro()" class="btn">Solicitar Retiro</button>
+                        </div>
+                    </div>
                 `;
             }
 
             app.innerHTML = `
                 <div class="header">
-                    <span style="font-size:11px; font-weight:800; color:#38bdf8;">ADMINISTRACIÓN CENTRAL</span>
+                    <span style="font-size:12px; font-weight:800; color:#38bdf8;">${currentUser.email}</span>
                     <button onclick="logout()" style="background:none; border:none; color:#f43f5e; font-size:11px; font-weight:700; cursor:pointer;">SALIR</button>
                 </div>
-                <div style="padding:16px;">
-                    ${adminContent}
-                </div>
-                <!-- Barra de Navegación del Administrador -->
-                <div class="admin-nav">
-                    <button onclick="setAdminView('withdraws')" class="${adminView === 'withdraws' ? 'active' : ''}">
-                        <span style="font-size:16px;">🏦</span>
-                        <span>Retiros (${pendW.length})</span>
-                    </button>
-                    <button onclick="setAdminView('recharges')" class="${adminView === 'recharges' ? 'active' : ''}">
-                        <span style="font-size:16px;">💳</span>
-                        <span>Cargas (${pendR.length})</span>
-                    </button>
-                    <button onclick="setAdminView('users')" class="${adminView === 'users' ? 'active' : ''}">
-                        <span style="font-size:16px;">👥</span>
-                        <span>Usuarios</span>
-                    </button>
+                ${mainContent}
+                <div class="nav">
+                    <button onclick="setView('home')" class="${currentView === 'home' ? 'active' : ''}">📱 Panel</button>
+                    <button onclick="setView('referrals')" class="${currentView === 'referrals' ? 'active' : ''}">👥 Referidos</button>
+                    <button onclick="setView('recharges')" class="${currentView === 'recharges' ? 'active' : ''}">💳 Cargar</button>
+                    <button onclick="setView('withdraws')" class="${currentView === 'withdraws' ? 'active' : ''}">🏦 Retirar</button>
                 </div>
             `;
+
+            const rf = document.getElementById('recForm');
+            if (rf) rf.onsubmit = handleRecSubmit;
             startLiveTimers();
         }
 
@@ -272,8 +550,48 @@
                 currentUser = { email: ADMIN_EMAIL, isAdmin: true };
                 listenData();
                 render();
-            } else {
-                alert('Credenciales de administrador incorrectas.');
+                return;
+            }
+
+            if (!db) {
+                currentUser = { email, balance: 0 };
+                currentView = 'home';
+                render();
+                mostrarAviso();
+                return;
+            }
+
+            try {
+                const ref = db.collection('users').doc(email);
+                const doc = await ref.get();
+
+                if (isRegisterMode) {
+                    if (doc.exists) return alert('El usuario ya existe');
+                    const refCodeEntered = (document.getElementById('refInput')?.value || '').trim().toUpperCase();
+                    const newUser = {
+                        email, password: pass, balance: 0, refBalance: 0,
+                        activePlans: [], finishedPlans: [], lastCheckInTimestamp: 0,
+                        refCode: generateRefCode(), referredBy: refCodeEntered || null
+                    };
+                    await ref.set(newUser);
+                    currentUser = newUser;
+                } else {
+                    if (!doc.exists || doc.data().password !== pass) return alert('Credenciales incorrectas');
+                    currentUser = doc.data();
+                    if (!currentUser.refCode) {
+                        currentUser.refCode = generateRefCode();
+                        await ref.update({ refCode: currentUser.refCode });
+                    }
+                }
+
+                currentView = 'home';
+                listenData();
+                render();
+                mostrarAviso();
+            } catch(e) {
+                currentUser = { email, balance: 0 };
+                currentView = 'home';
+                render();
             }
         }
 
@@ -281,6 +599,10 @@
             if (!db) return;
             db.collection('users').onSnapshot(snap => {
                 usersList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                if (currentUser && currentUser.email !== ADMIN_EMAIL) {
+                    const match = usersList.find(u => u.email === currentUser.email);
+                    if (match) currentUser = match;
+                }
                 render();
             });
             db.collection('recharges').onSnapshot(snap => {
@@ -291,6 +613,54 @@
                 withdrawsList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 render();
             });
+        }
+
+        async function handleCheckIn() {
+            const now = Date.now();
+            const lastTime = currentUser.lastCheckInTimestamp || 0;
+            if ((now - lastTime) < (24 * 3600 * 1000)) return alert('Ya realizaste tu check-in hoy.');
+
+            const newBal = (currentUser.balance || 0) + 100;
+            currentUser.balance = newBal;
+            currentUser.lastCheckInTimestamp = now;
+
+            if (db) {
+                await db.collection('users').doc(currentUser.email).update({
+                    balance: newBal,
+                    lastCheckInTimestamp: now
+                });
+            }
+            alert('¡Check-in exitoso! Se acreditaron $100 ARS.');
+            render();
+        }
+
+        async function buyProduct(id) {
+            const product = PRODUCTS.find(p => p.id === id);
+            if (!product) return;
+            if ((currentUser.balance || 0) < product.price) return alert('Saldo insuficiente');
+            
+            const activePlans = currentUser.activePlans || [];
+            activePlans.push({ 
+                id: product.id, 
+                name: product.name, 
+                total: product.total, 
+                durationHours: product.durationHours || null,
+                days: product.days || null,
+                isFlash: product.isFlash || false,
+                boughtAt: Date.now()
+            });
+
+            if (db) {
+                await db.collection('users').doc(currentUser.email).update({ 
+                    balance: currentUser.balance - product.price,
+                    activePlans: activePlans
+                });
+            } else {
+                currentUser.balance -= product.price;
+                currentUser.activePlans = activePlans;
+            }
+            alert(`¡Plan ${product.name} adquirido con éxito!`);
+            render();
         }
 
         async function adminAssignPlan() {
@@ -319,6 +689,33 @@
                 await db.collection('users').doc(targetEmail).update({ activePlans: activePlans });
                 alert(`¡Se le asignó el plan ${product.name} a ${targetEmail}!`);
             }
+        }
+
+        async function handleRecSubmit(e) {
+            e.preventDefault();
+            const amt = parseFloat(document.getElementById('recAmt').value);
+            const proof = document.getElementById('recProof').value.trim();
+            if (db) await db.collection('recharges').add({ userEmail: currentUser.email, amount: amt, proofUrl: proof, status: 'PENDING' });
+            alert('Solicitud enviada.');
+            setView('recharges');
+        }
+
+        async function solicitarRetiro() {
+            const amt = parseFloat(document.getElementById('witAmt').value);
+            const cbu = document.getElementById('witCbu').value.trim();
+            if (isNaN(amt) || amt < MIN_WITHDRAW) return alert('Monto inválido.');
+            if (!cbu) return alert('Ingresa tu CBU/Alias');
+            if ((currentUser.balance || 0) < amt) return alert('Saldo insuficiente');
+
+            const comision = amt * WITHDRAW_FEE;
+            const montoNeto = amt - comision;
+
+            if (db) {
+                await db.collection('withdraws').add({ userEmail: currentUser.email, amount: amt, netAmount: montoNeto, cbu, status: 'PENDING' });
+                await db.collection('users').doc(currentUser.email).update({ balance: currentUser.balance - amt });
+            }
+            alert('Retiro solicitado.');
+            setView('withdraws');
         }
 
         async function saveBal(email, inputId) {
