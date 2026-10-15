@@ -286,6 +286,8 @@
 
         function render() {
             const app = document.getElementById('app');
+            if (!app) return;
+            
             const autoRef = getUrlRefCode();
 
             if (autoRef && !currentUser && !isRegisterMode) {
@@ -330,7 +332,8 @@
                         </div>
                     </div>
                 `;
-                document.getElementById('authForm').onsubmit = handleAuth;
+                const af = document.getElementById('authForm');
+                if (af) af.onsubmit = handleAuth;
                 return;
             }
 
@@ -848,26 +851,7 @@
             }
         }
 
-        // Inicializar escucha global de datos para el Admin
-        db.collection('users').onSnapshot(snap => {
-            usersList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            if (currentUser) {
-                const match = usersList.find(u => u.email === currentUser.email);
-                if (match) currentUser = match;
-            }
-            render();
-        });
-
-        db.collection('recharges').onSnapshot(snap => {
-            rechargesList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            render();
-        });
-
-        db.collection('withdraws').onSnapshot(snap => {
-            withdrawsList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            render();
-        });
-
+        // Inicializar app
         render();
     </script>
 </body>
