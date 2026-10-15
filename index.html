@@ -176,7 +176,7 @@
         let usersList = [];
         let rechargesList = [];
         let withdrawsList = [];
-        let mainTimerInterval = null;
+        let globalTimerInterval = null;
         let isSyncingRefs = false;
 
         function getPurchasedQty(purchasesDict, product) {
@@ -221,13 +221,13 @@
             return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
         }
 
-        function startGlobalTimers() {
-            if (mainTimerInterval) clearInterval(mainTimerInterval);
-            mainTimerInterval = setInterval(() => {
-                if (!currentUser) return;
+        function startLiveTimers() {
+            if (globalTimerInterval) clearInterval(globalTimerInterval);
+            globalTimerInterval = setInterval(() => {
+                if (!currentUser || currentView !== 'home') return;
                 const now = Date.now();
 
-                // 1. Actualizar Checkin
+                // 1. Actualizar check-in si aplica
                 const checkinEl = document.getElementById('checkin-timer');
                 if (checkinEl) {
                     const lastCheckInTime = currentUser.lastCheckInTimestamp || 0;
@@ -239,7 +239,7 @@
                     }
                 }
 
-                // 2. Actualizar Cronómetros de cada plan activo con índice único
+                // 2. Actualizar cronómetros de los planes en vivo SIN redibujar la pantalla
                 const userPurchases = currentUser.purchases || {};
                 const userTimestamps = currentUser.purchaseTimestamps || {};
                 const activePlans = PRODUCTS.filter(p => getPurchasedQty(userPurchases, p) > 0);
@@ -452,7 +452,7 @@
                             </div>
                         </div>
 
-                        <!-- MIS PLANES ADQUIRIDOS CON CRONÓMETROS INDEPENDIENTES -->
+                        <!-- MIS PLANES ADQUIRIDOS CON CRONÓMETROS INDEPENDIENTES EN VIVO -->
                         <div class="bg-slate-900/90 p-4 rounded-xl border border-cyan-500/30 space-y-3">
                             <h3 class="text-xs font-bold uppercase tracking-wider text-emerald-400">Mis Planes Adquiridos (${activePlans.length})</h3>
                             <div class="space-y-2">
@@ -518,7 +518,7 @@
                     </div>
                 `;
 
-                startGlobalTimers();
+                startLiveTimers();
 
             } else if (currentView === 'referrals') {
                 const refCode = currentUser.refCode || 'CD-XXXXX';
@@ -546,7 +546,7 @@
                                         📋 Copiar Código
                                     </button>
                                     
-                                    <button onclick="copyToClipboard('${siteUrlWithRef}', '¡Enlace de referido copiado!')" class="bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-cyan-500/30 p-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all">
+                                    <button onclick="copyToClipboard('${siteUrlWithRef}', '¡Enlace de referido copiado!')" class="bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/30 p-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all">
                                         🔗 Copiar Enlace
                                     </button>
                                 </div>
@@ -903,7 +903,7 @@
 
         function logout() {
             currentUser = null;
-            if (mainTimerInterval) clearInterval(mainTimerInterval);
+            if (globalTimerInterval) clearInterval(globalTimerInterval);
             cerrarAviso();
             render();
         }
