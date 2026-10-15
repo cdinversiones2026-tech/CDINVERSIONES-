@@ -148,7 +148,7 @@
         `;
 
         const PRODUCTS = [
-            { id: 99, name: "⚡ Paquete Flash 24hs", price: 7000, durationHours: 24, dailyYield: 14400, total: 14400, limit: 1, isFlash: true },
+            { id: 99, name: "⚡ Paquete Flash (72hs)", price: 7000, durationHours: 72, dailyYield: 14400, total: 14400, limit: 1, isFlash: true },
             { id: 1, name: "Plan Celular 5.000 ARS", price: 5000, days: 3, dailyYield: 2583, total: 7750, limit: 1 },
             { id: 2, name: "Plan Celular 10.000 ARS", price: 10000, days: 6, dailyYield: 2583, total: 15500, limit: 1 },
             { id: 3, name: "Plan Celular 16.000 ARS", price: 16000, days: 8, dailyYield: 3100, total: 24800, limit: 1 },
@@ -168,6 +168,7 @@
         let usersList = [];
         let rechargesList = [];
         let withdrawsList = [];
+        let timerInterval = null;
 
         function getUrlRefCode() {
             const urlParams = new URLSearchParams(window.location.search);
@@ -214,6 +215,60 @@
 
         function copyToClipboard(text, msg) {
             navigator.clipboard.writeText(text).then(() => alert(msg || 'Copiado')).catch(() => alert('No se pudo copiar'));
+        }
+
+        async function checkCompletedPlans() {
+            if (!currentUser || !currentUser.activePlans || currentUser.activePlans.length === 0) return;
+
+            const now = Date.now();
+            let updatedPlans = [];
+            let finishedPlansList = currentUser.finishedPlans || [];
+            let totalYieldToCredit = 0;
+            let hasCompletedPlans = false;
+
+            currentUser.activePlans.forEach(plan => {
+                const durationMs = plan.durationHours ? (plan.durationHours * 60 * 60 * 1000) : (plan.days * 24 * 60 * 60 * 1000);
+                const planEnd = plan.boughtAt + durationMs;
+                if (now >= planEnd) {
+                    totalYieldToCredit += plan.total;
+                    finishedPlansList.push({ ...plan, finishedAt: now });
+                    hasCompletedPlans = true;
+                } else {
+                    updatedPlans.push(plan);
+                }
+            });
+
+            if (hasCompletedPlans) {
+                try {
+                    const newBalance = (currentUser.balance || 0) + totalYieldToCredit;
+                    await db.collection('users').doc(currentUser.email).update({
+                        balance: newBalance,
+                        activePlans: updatedPlans,
+                        finishedPlans: finishedPlansList
+                    });
+                } catch (err) {
+                    console.error("Error al finalizar plan:", err);
+                }
+            }
+        }
+
+        function startLiveTimers() {
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                checkCompletedPlans();
+                const now = Date.now();
+                const planEls = document.querySelectorAll('.plan-timer');
+                planEls.forEach(el => {
+                    const end = parseInt(el.getAttribute('data-end'));
+                    const rem = end - now;
+                    if (rem <= 0) {
+                        el.innerText = "¡Completado!";
+                        render();
+                    } else {
+                        el.innerText = formatTimeRemaining(rem);
+                    }
+                });
+            }, 1000);
         }
 
         function render() {
@@ -316,10 +371,10 @@
                                     const planEnd = plan.boughtAt + durationMs;
                                     const rem = planEnd - now;
                                     return `
-                                        <div class="bg-slate-950 p-3 rounded-lg border border-cyan-500/30 flex justify-between items-center text-xs">
+                                        <div class="bg-slate-950 p-3 rounded-lg border ${plan.isFlash ? 'border-amber-500/80 bg-amber-950/20' : 'border-cyan-500/30'} flex justify-between items-center text-xs">
                                             <div class="space-y-1">
                                                 <p class="font-bold text-white">${plan.name}</p> <p class="text-[11px] text-emerald-400 font-bold">Retorno Total: $${plan.total.toLocaleString()} ARS</p>
-                                                <p class="text-[11px] text-amber-400 font-mono font-bold">⏳ Restante: ${formatTimeRemaining(rem)}</p>
+                                                <p class="text-[11px] text-amber-400 font-mono font-bold">⏳ Restante: <span class="plan-timer" data-end="${planEnd}">${formatTimeRemaining(rem)}</span></p>
                                             </div>
                                             <span class="bg-cyan-500/20 text-cyan-300 font-bold px-2 py-1 rounded border border-cyan-500/40 text-[10px]">EN PROCESO</span>
                                         </div>
@@ -352,21 +407,20 @@
                             </div>
 
                             <div class="space-y-3">
-                                ${PRODUCTS.map(p => {
+                                ${PRODUCTS.filter(p => !p.isFlash).map(p => {
                                     const qty = purchases[p.id] || 0;
                                     const limitReached = qty >= p.limit;
                                     
                                     return `
-                                        <div class="bg-slate-900/90 p-4 rounded-xl border ${p.isFlash ? 'border-amber-500/80 bg-amber-950/20' : limitReached ? 'border-slate-800 opacity-60' : 'border-slate-800'}">
-                                            ${p.isFlash ? `<span class="bg-amber-500 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded uppercase mb-2 inline-block">⚡ PAQUETE FLASH (24HS)</span>` : ''}
+                                        <div class="bg-slate-900/90 p-4 rounded-xl border ${limitReached ? 'border-slate-800 opacity-60' : 'border-slate-800'}">
                                             <div class="flex justify-between items-start mb-2">
                                                 <div>
                                                     <h4 class="font-bold text-white text-sm">${p.name}</h4> <p class="text-[11px] text-cyan-300 font-semibold">Valor: <span class="text-white font-bold">$${p.price.toLocaleString()} ARS</span></p>
-                                                    <p class="text-[10px] text-slate-400">Plazo: ${p.durationHours ? p.durationHours + ' horas' : p.days + ' días'}</p>
+                                                    <p class="text-[10px] text-slate-400">Plazo: ${p.days} días</p>
                                                 </div>
                                                 <span class="text-[10px] bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded font-bold">Límite: ${qty}/${p.limit}</span> </div> <div class="flex justify-between items-center pt-2 border-t border-slate-800/80 mt-1"> <div> <p class="text-[10px] text-slate-400 uppercase">Total Retorno</p> <p class="text-xs font-black text-emerald-400">$${p.total.toLocaleString()} ARS</p>
                                                 </div>
-                                                <button onclick="buyProduct(${p.id})" ${limitReached ? 'disabled' : ''} class="${limitReached ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : p.isFlash ? 'bg-amber-500 text-slate-950 font-black' : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-slate-950 font-black'} px-4 py-2 rounded-lg text-xs uppercase">
+                                                <button onclick="buyProduct(${p.id})" ${limitReached ? 'disabled' : ''} class="${limitReached ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-slate-950 font-black'} px-4 py-2 rounded-lg text-xs uppercase">
                                                     ${limitReached ? 'Agotado' : 'Adquirir'}
                                                 </button>
                                             </div>
@@ -497,6 +551,7 @@
 
             const rf = document.getElementById('rechargeForm');
             if (rf) rf.onsubmit = handleRechargeSubmit;
+            startLiveTimers();
         }
 
         async function handleAuth(e) {
@@ -584,6 +639,7 @@
                 durationHours: product.durationHours || null,
                 days: product.days || 0,
                 total: product.total,
+                isFlash: product.isFlash || false,
                 boughtAt: Date.now()
             });
 
