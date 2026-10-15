@@ -221,25 +221,25 @@
             return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
         }
 
-        function startLiveTimers() {
+        function initGlobalTimer() {
             if (globalTimerInterval) clearInterval(globalTimerInterval);
             globalTimerInterval = setInterval(() => {
                 if (!currentUser || currentView !== 'home') return;
                 const now = Date.now();
 
-                // 1. Actualizar check-in si aplica
+                // Actualizar check-in
                 const checkinEl = document.getElementById('checkin-timer');
                 if (checkinEl) {
                     const lastCheckInTime = currentUser.lastCheckInTimestamp || 0;
                     const remCheckin = (24 * 60 * 60 * 1000) - (now - lastCheckInTime);
                     if (remCheckin <= 0) {
-                        render();
+                        checkinEl.innerText = "¡Disponible!";
                     } else {
                         checkinEl.innerText = formatTimeRemaining(remCheckin);
                     }
                 }
 
-                // 2. Actualizar cronómetros de los planes en vivo SIN redibujar la pantalla
+                // Actualizar cronómetros de los planes en vivo
                 const userPurchases = currentUser.purchases || {};
                 const userTimestamps = currentUser.purchaseTimestamps || {};
                 const activePlans = PRODUCTS.filter(p => getPurchasedQty(userPurchases, p) > 0);
@@ -518,8 +518,6 @@
                     </div>
                 `;
 
-                startLiveTimers();
-
             } else if (currentView === 'referrals') {
                 const refCode = currentUser.refCode || 'CD-XXXXX';
                 const siteUrlWithRef = window.location.origin + window.location.pathname + '?ref=' + refCode;
@@ -546,7 +544,7 @@
                                         📋 Copiar Código
                                     </button>
                                     
-                                    <button onclick="copyToClipboard('${siteUrlWithRef}', '¡Enlace de referido copiado!')" class="bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/30 p-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all">
+                                    <button onclick="copyToClipboard('${siteUrlWithRef}', '¡Enlace de referido copiado!')" class="bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-cyan-500/30 p-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all">
                                         🔗 Copiar Enlace
                                     </button>
                                 </div>
@@ -822,6 +820,9 @@
 
             const rechargeForm = document.getElementById('rechargeForm');
             if (rechargeForm) rechargeForm.onsubmit = handleRechargeSubmit;
+            
+            // Iniciar o asegurar la ejecución del bucle del reloj
+            initGlobalTimer();
         }
 
         async function handleAuth(e) {
@@ -1028,7 +1029,7 @@
         }
 
         async function rejectRecharge(id) {
-            await db.collection('recharges').doc(id).update({ status: 'REJECTED' });
+            await db.collection('recharges').doc(id).update({status: 'REJECTED' });
             alert('Solicitud de recarga rechazada.');
         }
 
