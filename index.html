@@ -221,7 +221,7 @@
             return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
         }
 
-        function initGlobalTimer() {
+        function startLiveTimers() {
             if (globalTimerInterval) clearInterval(globalTimerInterval);
             globalTimerInterval = setInterval(() => {
                 if (!currentUser || currentView !== 'home') return;
@@ -239,25 +239,35 @@
                     }
                 }
 
-                // Actualizar cronómetros de los planes en vivo
+                // Actualizar cronómetros y verificar finalización en tiempo real
                 const userPurchases = currentUser.purchases || {};
                 const userTimestamps = currentUser.purchaseTimestamps || {};
-                const activePlans = PRODUCTS.filter(p => getPurchasedQty(userPurchases, p) > 0);
+                let needsRe-render = false;
 
-                activePlans.forEach((p, index) => {
-                    const timerEl = document.getElementById(`plan-timer-${index}`);
-                    if (timerEl) {
+                PRODUCTS.forEach((p, index) => {
+                    const qty = getPurchasedQty(userPurchases, p);
+                    if (qty > 0) {
                         const boughtAt = getPurchaseTimestamp(userTimestamps, p);
                         const durationMs = p.days * 24 * 60 * 60 * 1000;
                         const remaining = durationMs - (now - boughtAt);
-                        if (remaining <= 0) {
-                            timerEl.innerText = "¡FINALIZADO!";
-                            timerEl.className = "text-emerald-400 font-bold";
-                        } else {
-                            timerEl.innerText = formatTimeRemaining(remaining);
+                        
+                        const timerEl = document.getElementById(`plan-timer-${p.id}`);
+                        if (timerEl) {
+                            if (remaining <= 0) {
+                                timerEl.innerText = "¡TERMINADO!";
+                                timerEl.className = "text-emerald-400 font-bold uppercase";
+                                needsRe-render = true; // Recarga ligera para moverlo a terminados
+                            } else {
+                                timerEl.innerText = formatTimeRemaining(remaining);
+                            }
                         }
                     }
                 });
+
+                if (needsRe-render) {
+                    // Refresca la vista si algún plan acaba de expirar
+                    setTimeout(() => render(), 1500);
+                }
             }, 1000);
         }
 
@@ -406,7 +416,24 @@
 
                 const userPurchases = currentUser.purchases || {};
                 const userTimestamps = currentUser.purchaseTimestamps || {};
-                const activePlans = PRODUCTS.filter(p => getPurchasedQty(userPurchases, p) > 0);
+                
+                const ownedPlans = PRODUCTS.filter(p => getPurchasedQty(userPurchases, p) > 0);
+                
+                // Clasificar en activos y terminados
+                const activePlans = [];
+                const finishedPlans = [];
+
+                ownedPlans.forEach(p => {
+                    const boughtAt = getPurchaseTimestamp(userTimestamps, p);
+                    const durationMs = p.days * 24 * 60 * 60 * 1000;
+                    const remainingMs = durationMs - (now - boughtAt);
+
+                    if (remainingMs <= 0) {
+                        finishedPlans.push(p);
+                    } else {
+                        activePlans.push(p);
+                    }
+                });
 
                 mainContent = `
                     <div class="space-y-5">
@@ -452,11 +479,11 @@
                             </div>
                         </div>
 
-                        <!-- MIS PLANES ADQUIRIDOS CON CRONÓMETROS INDEPENDIENTES EN VIVO -->
+                        <!-- PLANES ACTIVOS -->
                         <div class="bg-slate-900/90 p-4 rounded-xl border border-cyan-500/30 space-y-3">
-                            <h3 class="text-xs font-bold uppercase tracking-wider text-emerald-400">Mis Planes Adquiridos (${activePlans.length})</h3>
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-400">Planes Activos Ahora (${activePlans.length})</h3>
                             <div class="space-y-2">
-                                ${activePlans.map((p, index) => {
+                                ${activePlans.map(p => {
                                     const qty = getPurchasedQty(userPurchases, p);
                                     const totalAccumulatedReturn = p.total * qty;
                                     const boughtAt = getPurchaseTimestamp(userTimestamps, p);
@@ -464,20 +491,44 @@
                                     const remainingMs = Math.max(0, durationMs - (now - boughtAt));
 
                                     return `
-                                        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 flex justify-between items-center text-xs">
+                                        <div class="bg-slate-950 p-3 rounded-lg border border-cyan-500/30 flex justify-between items-center text-xs">
                                             <div class="space-y-1">
                                                 <p class="font-bold text-white">${p.name}</p> <p class="text-[10px] text-slate-400">Rendimiento: $${p.dailyYield.toLocaleString()} ARS/día • Plazo: ${p.days} días</p> <p class="text-[11px] text-emerald-400 font-bold">Retorno Total: $${totalAccumulatedReturn.toLocaleString()} ARS</p>
                                                 <p class="text-[11px] text-amber-400 font-mono font-bold flex items-center gap-1 pt-0.5">
-                                                    ⏳ Restante: <span id="plan-timer-${index}">${formatTimeRemaining(remainingMs)}</span>
+                                                    ⏳ Tiempo Restante: <span id="plan-timer-${p.id}">${formatTimeRemaining(remainingMs)}</span>
                                                 </p>
                                             </div>
-                                            <span class="bg-emerald-500/20 text-emerald-300 font-bold px-2 py-1 rounded border border-emerald-500/40 text-[10px] flex-shrink-0 ml-2">
+                                            <span class="bg-cyan-500/20 text-cyan-300 font-bold px-2 py-1 rounded border border-cyan-500/40 text-[10px] flex-shrink-0 ml-2">
                                                 ${qty} Activo(s)
                                             </span>
                                         </div>
                                     `;
                                 }).join('')}
-                                ${activePlans.length === 0 ? '<p class="text-xs text-slate-500 text-center py-1">Aún no tienes planes activos.</p>' : ''}
+                                ${activePlans.length === 0 ? '<p class="text-xs text-slate-500 text-center py-1">No tienes planes activos en este momento.</p>' : ''}
+                            </div>
+                        </div>
+
+                        <!-- PLANES TERMINADOS -->
+                        <div class="bg-slate-900/90 p-4 rounded-xl border border-slate-800 space-y-3">
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-emerald-400">Planes Terminados / Finalizados (${finishedPlans.length})</h3>
+                            <div class="space-y-2">
+                                ${finishedPlans.map(p => {
+                                    const qty = getPurchasedQty(userPurchases, p);
+                                    const totalAccumulatedReturn = p.total * qty;
+
+                                    return `
+                                        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800/80 flex justify-between items-center text-xs opacity-80">
+                                            <div class="space-y-1">
+                                                <p class="font-bold text-slate-300 line-through">${p.name}</p>
+                                                <p class="text-[10px] text-slate-500">Plazo completado exitosamente (${p.days} días)</p> <p class="text-[11px] text-emerald-400 font-bold">Retorno Obtenido: $${totalAccumulatedReturn.toLocaleString()} ARS</p>
+                                            </div>
+                                            <span class="bg-emerald-500/20 text-emerald-300 font-bold px-2 py-1 rounded border border-emerald-500/30 text-[10px] flex-shrink-0 ml-2">
+                                                FINALIZADO
+                                            </span>
+                                        </div>
+                                    `;
+                                }).join('')}
+                                ${finishedPlans.length === 0 ? '<p class="text-xs text-slate-500 text-center py-1">Aún no tienes planes terminados.</p>' : ''}
                             </div>
                         </div>
 
@@ -821,7 +872,7 @@
             const rechargeForm = document.getElementById('rechargeForm');
             if (rechargeForm) rechargeForm.onsubmit = handleRechargeSubmit;
             
-            // Iniciar o asegurar la ejecución del bucle del reloj
+            // Iniciar el reloj en vivo
             initGlobalTimer();
         }
 
@@ -1029,7 +1080,7 @@
         }
 
         async function rejectRecharge(id) {
-            await db.collection('recharges').doc(id).update({status: 'REJECTED' });
+            await db.collection('recharges').doc(id).update({ status: 'REJECTED' });
             alert('Solicitud de recarga rechazada.');
         }
 
