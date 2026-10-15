@@ -217,7 +217,7 @@
         `;
 
         const PRODUCTS = [
-            { id: 99, name: "⚡ Paquete Flash 24hs", price: 7000, days: 3, dailyYield: 4800, total: 14400, limit: 1, isFlash: true },
+            { id: 99, name: "⚡ Paquete Flash 24hs", price: 7000, days: 1, durationHours: 24, dailyYield: 14400, total: 14400, limit: 1, isFlash: true },
             { id: 1, name: "Plan Celular 5.000 ARS", price: 5000, days: 3, dailyYield: 2583, total: 7750, limit: 1 },
             { id: 2, name: "Plan Celular 10.000 ARS", price: 10000, days: 6, dailyYield: 2583, total: 15500, limit: 1 },
             { id: 3, name: "Plan Celular 16.000 ARS", price: 16000, days: 8, dailyYield: 3100, total: 24800, limit: 1 },
@@ -392,13 +392,19 @@
 
             const now = Date.now();
             let updatedPlans = [];
+            let finishedPlansList = currentUser.finishedPlans || [];
             let totalYieldToCredit = 0;
             let hasCompletedPlans = false;
 
             currentUser.activePlans.forEach(plan => {
-                const planEnd = plan.boughtAt + (plan.days * 24 * 60 * 60 * 1000);
+                const durationMs = plan.durationHours ? (plan.durationHours * 60 * 60 * 1000) : (plan.days * 24 * 60 * 60 * 1000);
+                const planEnd = plan.boughtAt + durationMs;
                 if (now >= planEnd) {
                     totalYieldToCredit += plan.total;
+                    finishedPlansList.push({
+                        ...plan,
+                        finishedAt: now
+                    });
                     hasCompletedPlans = true;
                 } else {
                     updatedPlans.push(plan);
@@ -411,7 +417,8 @@
                     const newBalance = (currentUser.balance || 0) + totalYieldToCredit;
                     await db.collection('users').doc(currentUser.email).update({
                         balance: newBalance,
-                        activePlans: updatedPlans
+                        activePlans: updatedPlans,
+                        finishedPlans: finishedPlansList
                     });
                     alert(`¡Felicidades! Tu plan ha finalizado. Se han acreditado $${totalYieldToCredit.toLocaleString()} ARS automáticamente a tu saldo.`);
                 } catch (err) {
@@ -484,6 +491,9 @@
                 const checkInAvailable = (now - lastCheckInTime) >= (24 * 60 * 60 * 1000);
                 const checkInRemaining = (24 * 60 * 60 * 1000) - (now - lastCheckInTime);
 
+                const activePlansList = currentUser.activePlans || [];
+                const finishedPlansList = currentUser.finishedPlans || [];
+
                 mainContent = `
                     <div class="space-y-5">
                         <div class="relative overflow-hidden rounded-xl border border-cyan-500/30 bg-gradient-to-br from-slate-900 to-blue-950 p-4 border-glow">
@@ -528,32 +538,46 @@
                             </div>
                         </div>
 
-                        ${currentUser.activePlans && currentUser.activePlans.length > 0 ? `
-                            <div>
-                                <h3 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-2">Tus Planes en Proceso</h3>
-                                <div class="space-y-2">
-                                    ${currentUser.activePlans.map(plan => {
-                                        const planEnd = plan.boughtAt + (plan.days * 24 * 60 * 60 * 1000);
-                                        const planLeft = planEnd - now;
-                                        const isFinished = planLeft <= 0;
-                                        return `
-                                            <div class="bg-slate-900 border border-emerald-500/30 p-3 rounded-xl flex justify-between items-center text-xs">
-                                                <div>
-                                                    <p class="font-bold text-white">${plan.name}</p>
-                                                    <p class="text-[10px] text-emerald-400">Retorno Total: $${plan.total.toLocaleString()} ARS</p>
-                                                </div>
-                                                <div class="text-right">
-                                                    <p class="text-[10px] text-slate-400">Finaliza en:</p>
-                                                    <span class="font-mono text-cyan-400 font-bold">
-                                                        ${isFinished ? '¡Completado!' : `<span class="plan-timer" data-end="${planEnd}">${formatTimeRemaining(planLeft)}</span>`}
-                                                    </span>
-                                                </div>
+                        <!-- PLANES ACTIVOS -->
+                        <div class="bg-slate-900/90 p-4 rounded-xl border border-cyan-500/30 space-y-3">
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-400">Planes Activos Ahora (${activePlansList.length})</h3>
+                            <div class="space-y-2">
+                                ${activePlansList.map(plan => {
+                                    const durationMs = plan.durationHours ? (plan.durationHours * 60 * 60 * 1000) : (plan.days * 24 * 60 * 60 * 1000);
+                                    const planEnd = plan.boughtAt + durationMs;
+                                    const planLeft = planEnd - now;
+                                    const isFinished = planLeft <= 0;
+                                    return `
+                                        <div class="bg-slate-950 p-3 rounded-lg border border-cyan-500/30 flex justify-between items-center text-xs">
+                                            <div class="space-y-1">
+                                                <p class="font-bold text-white">${plan.name}</p> <p class="text-[11px] text-emerald-400 font-bold">Retorno Total: $${plan.total.toLocaleString()} ARS</p>
+                                                <p class="text-[11px] text-amber-400 font-mono font-bold flex items-center gap-1 pt-0.5">
+                                                    ⏳ Tiempo Restante: <span class="plan-timer" data-end="${planEnd}">${isFinished ? '¡Completado!' : formatTimeRemaining(planLeft)}</span>
+                                                </p>
                                             </div>
-                                        `;
-                                    }).join('')}
-                                </div>
+                                            <span class="bg-cyan-500/20 text-cyan-300 font-bold px-2 py-1 rounded border border-cyan-500/40 text-[10px]">EN PROCESO</span>
+                                        </div>
+                                    `;
+                                }).join('')}
+                                ${activePlansList.length === 0 ? '<p class="text-xs text-slate-500 text-center py-1">No tienes planes activos en este momento.</p>' : ''}
                             </div>
-                        ` : ''}
+                        </div>
+
+                        <!-- PLANES TERMINADOS -->
+                        <div class="bg-slate-900/90 p-4 rounded-xl border border-slate-800 space-y-3">
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-emerald-400">Planes Terminados / Finalizados (${finishedPlansList.length})</h3>
+                            <div class="space-y-2">
+                                ${finishedPlansList.map(plan => `
+                                    <div class="bg-slate-950 p-3 rounded-lg border border-slate-800/80 flex justify-between items-center text-xs opacity-80">
+                                        <div class="space-y-1">
+                                            <p class="font-bold text-slate-300 line-through">${plan.name}</p> <p class="text-[10px] text-slate-500">Plazo completado exitosamente</p> <p class="text-[11px] text-emerald-400 font-bold">Retorno Obtenido: $${plan.total.toLocaleString()} ARS</p>
+                                        </div>
+                                        <span class="bg-emerald-500/20 text-emerald-300 font-bold px-2 py-1 rounded border border-emerald-500/30 text-[10px]">FINALIZADO</span>
+                                    </div>
+                                `).join('')}
+                                ${finishedPlansList.length === 0 ? '<p class="text-xs text-slate-500 text-center py-1">Aún no tienes planes terminados.</p>' : ''}
+                            </div>
+                        </div>
 
                         <div>
                             <div class="flex justify-between items-center mb-3">
@@ -563,8 +587,6 @@
 
                             <div class="space-y-3">
                                 ${PRODUCTS.map(p => {
-                                    if (p.isFlash && !isFlashAvailable) return '';
-
                                     const purchases = (currentUser.purchases && currentUser.purchases[p.id]) || 0;
                                     const limitReached = purchases >= p.limit;
                                     
@@ -576,14 +598,14 @@
                                                         ⚡ PAQUETE FLASH (24HS)
                                                     </span>
                                                     <span class="text-[10px] text-amber-400 font-mono font-bold">
-                                                        ⏱️ Expira en: <span id="flash-plan-timer">${formatTimeRemaining(flashTimeLeft)}</span>
+                                                        ⏱️ Rendimiento 24 Horas
                                                     </span>
                                                 </div>
                                             ` : ''}
                                             <div class="flex justify-between items-start mb-2">
                                                 <div>
                                                     <h4 class="font-bold text-white text-sm">${p.name}</h4> <p class="text-[11px] text-cyan-300 font-semibold">Valor de Compra: <span class="text-white font-bold">$${p.price.toLocaleString()} ARS</span></p>
-                                                    <p class="text-[10px] text-slate-400">Plazo: ${p.days} días (${p.days * 24}hs) • Rendimiento Diario: $${p.dailyYield.toLocaleString()} ARS</p>
+                                                    <p class="text-[10px] text-slate-400">Plazo: ${p.durationHours ? p.durationHours + ' horas' : p.days + ' días'} • Retorno: $${p.total.toLocaleString()} ARS</p>
                                                 </div>
                                                 <span class="text-[10px] bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded font-bold">
                                                     Límite: ${purchases}/${p.limit} </span> </div> <div class="flex justify-between items-center pt-2 border-t border-slate-800/80 mt-1"> <div> <p class="text-[10px] text-slate-400 uppercase">Total Retorno al Finalizar</p> <p class="text-xs font-black text-emerald-400">$${p.total.toLocaleString()} ARS</p>
@@ -637,7 +659,7 @@
                                         📋 Copiar Código
                                     </button>
                                     
-                                    <button onclick="copyToClipboard('${siteUrlWithRef}', '¡Enlace de referido copiado!')" class="bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/30 p-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all">
+                                    <button onclick="copyToClipboard('${siteUrlWithRef}', '¡Enlace de referido copiado!')" class="bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-cyan-500/30 p-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all">
                                         🔗 Copiar Enlace
                                     </button>
                                 </div>
@@ -776,7 +798,6 @@
                     emailCounts[norm] = (emailCounts[norm] || 0) + 1;
                 });
 
-                // Set de correos con cargas APROBADAS
                 const approvedRechargeEmails = new Set(
                     rechargesList.filter(r => r.status === 'APPROVED' && !r.isBonus).map(r => r.userEmail)
                 );
@@ -797,7 +818,6 @@
                                     const normEmail = normalizeEmail(u.email);
                                     const isDuplicate = emailCounts[normEmail] > 1;
                                     
-                                    // Conteo estricto: Referidos registrados que ademas tienen CARGA APROBADA
                                     const realRechargedRefs = usersList.filter(refUser => 
                                         refUser.referredBy === u.refCode && approvedRechargeEmails.has(refUser.email)
                                     ).length;
@@ -987,12 +1007,6 @@
                 if (globalEventStartTime) {
                     const flashRem = EVENT_DURATION - (now - globalEventStartTime);
 
-                    const flashPlanEl = document.getElementById('flash-plan-timer');
-                    if (flashPlanEl) {
-                        if (flashRem <= 0) render();
-                        else flashPlanEl.innerText = formatTimeRemaining(flashRem);
-                    }
-
                     const flashRefEl = document.getElementById('ref-flash-timer');
                     if (flashRefEl) {
                         if (flashRem <= 0) flashRefEl.innerText = 'Finalizado ($500 Instantáneo Activo)';
@@ -1046,6 +1060,7 @@
                     level: 1,
                     purchases: {},
                     activePlans: [],
+                    finishedPlans: [],
                     lastCheckInTimestamp: 0,
                     lastWithdrawTimestamp: 0,
                     refCode: myRefCode,
@@ -1150,13 +1165,6 @@
             const product = PRODUCTS.find(p => p.id === productId);
             const purchases = (currentUser.purchases && currentUser.purchases[productId]) || 0;
 
-            if (product.isFlash) {
-                const now = Date.now();
-                if ((now - globalEventStartTime) > EVENT_DURATION) {
-                    return alert('El Paquete Flash de 24hs ha expirado.');
-                }
-            }
-
             if (purchases >= product.limit) return alert('Límite de compra alcanzado para este plan');
             
             if ((currentUser.balance || 0) < product.price) return alert('Saldo insuficiente para adquirir este plan');
@@ -1166,6 +1174,7 @@
                 id: product.id,
                 name: product.name,
                 days: product.days,
+                durationHours: product.durationHours || null,
                 total: product.total,
                 boughtAt: Date.now()
             });
