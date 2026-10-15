@@ -84,7 +84,13 @@
             { id: 2, name: "Plan Celular 10.000 ARS", price: 10000, days: 6, total: 15500, limit: 1 },
             { id: 3, name: "Plan Celular 16.000 ARS", price: 16000, days: 8, total: 24800, limit: 1 },
             { id: 4, name: "Plan Celular 20.000 ARS", price: 20000, days: 11, total: 31000, limit: 1 },
-            { id: 5, name: "Plan Celular 28.000 ARS", price: 28000, days: 15, total: 43400, limit: 2 }
+            { id: 5, name: "Plan Celular 28.000 ARS", price: 28000, days: 15, total: 43400, limit: 2 },
+            { id: 6, name: "Plan Celular 36.000 ARS", price: 36000, days: 18, total: 55800, limit: 2 },
+            { id: 7, name: "Plan Celular 45.000 ARS", price: 45000, days: 25, total: 69750, limit: 2 },
+            { id: 8, name: "Plan Celular 60.000 ARS", price: 60000, days: 30, total: 93000, limit: 2 },
+            { id: 9, name: "Plan Celular 75.000 ARS", price: 75000, days: 36, total: 131250, limit: 3 },
+            { id: 10, name: "Plan Celular 100.000 ARS", price: 100000, days: 48, total: 175000, limit: 3 },
+            { id: 11, name: "Plan Celular 150.000 ARS", price: 150000, days: 70, total: 262500, limit: 3 }
         ];
 
         let currentUser = null;
@@ -189,6 +195,22 @@
                     else checkinEl.innerText = formatTimeRemaining(rem);
                 }
             }, 1000);
+        }
+
+        function calcularMontoFinal() {
+            const inputMonto = document.getElementById("witAmt");
+            const detalleCalculo = document.getElementById("detalle-calculo");
+            if (!inputMonto || !detalleCalculo) return;
+
+            const monto = parseFloat(inputMonto.value);
+            if (isNaN(monto) || monto <= 0) {
+                detalleCalculo.innerHTML = "Comisión (15%): $0 ARS | Neto a recibir: <strong>$0 ARS</strong>";
+                return;
+            }
+
+            const comision = monto * WITHDRAW_FEE;
+            const montoNeto = monto - comision;
+            detalleCalculo.innerHTML = `Comisión (15%): <strong style="color:#fbbf24;">-$${comision.toLocaleString()} ARS</strong> | Neto a recibir: <strong style="color:#34d399;">$${montoNeto.toLocaleString()} ARS</strong>`;
         }
 
         function render() {
@@ -303,9 +325,9 @@
                     </div>
                 `;
             } else if (currentView === 'referrals') {
-                const refCode = currentUser.refCode || 'CD-XXXX';
-                const siteUrl = window.location.origin + window.location.pathname + '?ref=' + refCode;
-                const myRefs = usersList.filter(u => u.referredBy === refCode);
+                const refCode = currentUser.refCode || '';
+                const siteUrl = window.location.origin + window.location.pathname + (refCode ? '?ref=' + refCode : '');
+                const myRefs = usersList.filter(u => refCode && u.referredBy === refCode);
                 mainContent = `
                     <div style="padding:16px;">
                         <div class="card">
@@ -345,7 +367,8 @@
                         <div class="card">
                             <h3 style="color:#38bdf8; font-size:14px; font-weight:800; margin-bottom:12px;">SOLICITAR RETIRO</h3>
                             <label>Monto a Retirar (Comisión 15%)</label>
-                            <input type="number" id="witAmt" min="${MIN_WITHDRAW}" required placeholder="Mínimo $1.000">
+                            <input type="number" id="witAmt" min="${MIN_WITHDRAW}" required placeholder="Mínimo $1.000" oninput="calcularMontoFinal()">
+                            <p id="detalle-calculo" style="font-size:11px; color:#cbd5e1; margin:6px 0 12px 0; font-family:monospace;">Comisión (15%): $0 ARS | Neto a recibir: <strong>$0 ARS</strong></p>
                             <label>CBU / CVU o Alias</label>
                             <input type="text" id="witCbu" required placeholder="Ingresa tu CBU/Alias">
                             <button onclick="solicitarRetiro()" class="btn">Solicitar Retiro</button>
@@ -399,7 +422,7 @@
                         <div class="card">
                             <h4 style="font-size:12px; margin-bottom:10px; font-weight:900;">👥 USUARIOS REGISTRADOS (${usersList.length})</h4>
                             ${usersList.map(u => {
-                                const refCount = usersList.filter(refU => refU.referredBy === u.refCode).length;
+                                const refCount = usersList.filter(refU => u.referredBy && u.refCode && refU.referredBy === u.refCode).length;
                                 const refBal = u.refBalance || 0;
                                 return `
                                     <div style="background:#020617; padding:10px; border-radius:8px; margin-bottom:10px; font-size:11px;">
@@ -478,6 +501,10 @@
                 } else {
                     if (!doc.exists || doc.data().password !== pass) return alert('Credenciales incorrectas');
                     currentUser = doc.data();
+                    if (!currentUser.refCode) {
+                        currentUser.refCode = generateRefCode();
+                        await ref.update({ refCode: currentUser.refCode });
+                    }
                 }
 
                 currentView = 'home';
@@ -575,8 +602,11 @@
             if (!cbu) return alert('Ingresa tu CBU/Alias');
             if ((currentUser.balance || 0) < amt) return alert('Saldo insuficiente');
 
+            const comision = amt * WITHDRAW_FEE;
+            const montoNeto = amt - comision;
+
             if (db) {
-                await db.collection('withdraws').add({ userEmail: currentUser.email, amount: amt, cbu, status: 'PENDING' });
+                await db.collection('withdraws').add({ userEmail: currentUser.email, amount: amt, netAmount: montoNeto, cbu, status: 'PENDING' });
                 await db.collection('users').doc(currentUser.email).update({ balance: currentUser.balance - amt });
             }
             alert('Retiro solicitado.');
