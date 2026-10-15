@@ -407,7 +407,14 @@
                 const activePlans = currentUser.activePlans || [];
                 const finishedPlans = currentUser.finishedPlans || [];
                 const hasActiveFlash = activePlans.some(p => p.isFlash);
-                const availableProducts = PRODUCTS.filter(p => !p.isFlash || hasActiveFlash);
+
+                // FILTRAR PRODUCTOS: Excluir los que el usuario ya compró (activos o terminados)
+                const availableProducts = PRODUCTS.filter(p => {
+                    const yaCompradoActivo = activePlans.some(ap => ap.id === p.id);
+                    const yaCompradoTerminado = finishedPlans.some(fp => fp.id === p.id);
+                    if (yaCompradoActivo || yaCompradoTerminado) return false;
+                    return !p.isFlash || hasActiveFlash;
+                });
 
                 const lastCheckIn = currentUser.lastCheckInTimestamp || 0;
                 const checkInAvailable = (now - lastCheckIn) >= (24 * 3600 * 1000);
@@ -470,27 +477,18 @@
                         <h3 style="font-size:12px; color:#38bdf8; font-weight:800; margin:14px 0 10px 0;">PLANES DISPONIBLES</h3>
                         ${availableProducts.map(p => {
                             const tiempoTexto = p.durationHours ? `${p.durationHours} Horas` : `${p.days} Días`;
-                            
-                            // Verificar si el usuario ya compró este plan (activo o terminado)
-                            const yaCompradoActivo = activePlans.some(ap => ap.id === p.id);
-                            const yaCompradoTerminado = finishedPlans.some(fp => fp.id === p.id);
-                            const limiteAlcanzado = yaCompradoActivo || yaCompradoTerminado;
-
                             return `
                                 <div class="card">
                                     <div class="flex-between">
                                         <h4 style="font-size:13px; font-weight:700;">${p.name}</h4> <span class="badge">$${p.price.toLocaleString()} ARS</span>
                                     </div>
-                                    <p style="font-size:11px; color:#cbd5e1; margin-top:6px;">⏱️ Duración: <strong style="color:#38bdf8;">${tiempoTexto}</strong></p>
-                                    <p style="font-size:10px; color:#94a3b8; margin-top:2px;">Límite de compra: ${p.limit} vez</p> <div class="flex-between" style="margin-top:10px; padding-top:8px; border-top:1px solid #1e293b;"> <span style="font-size:12px; color:#34d399; font-weight:700;">Retorno: $${p.total.toLocaleString()} ARS</span>${limiteAlcanzado ? `
-                                            <button disabled class="btn" style="width:auto; padding:6px 12px; font-size:10px; background:#334155; color:#94a3b8;">Ya adquirido</button>
-                                        ` : `
-                                            <button onclick="buyProduct(${p.id})" class="btn" style="width:auto; padding:6px 12px; font-size:10px;">Adquirir</button>
-                                        `}
+                                    <p style="font-size:11px; color:#cbd5e1; margin-top:6px;">⏱️ Duración: <strong style="color:#38bdf8;">${tiempoTexto}</strong></p> <div class="flex-between" style="margin-top:10px; padding-top:8px; border-top:1px solid #1e293b;"> <span style="font-size:12px; color:#34d399; font-weight:700;">Retorno: $${p.total.toLocaleString()} ARS</span>
+                                        <button onclick="buyProduct(${p.id})" class="btn" style="width:auto; padding:6px 12px; font-size:10px;">Adquirir</button>
                                     </div>
                                 </div>
                             `;
                         }).join('')}
+                        ${availableProducts.length === 0 ? '<p style="font-size:11px; color:#64748b; text-align:center;">Has adquirido todos los planes disponibles.</p>' : ''}
                     </div>
                 `;
             } else if (currentView === 'referrals') {
