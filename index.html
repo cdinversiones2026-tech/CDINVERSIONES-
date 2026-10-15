@@ -259,7 +259,6 @@
                 checkCompletedPlans();
                 const now = Date.now();
                 
-                // Actualizar temporizadores de planes
                 const planEls = document.querySelectorAll('.plan-timer');
                 planEls.forEach(el => {
                     const end = parseInt(el.getAttribute('data-end'));
@@ -272,7 +271,6 @@
                     }
                 });
 
-                // Actualizar temporizador de Check-in
                 const checkinEl = document.getElementById('checkin-timer');
                 if (checkinEl && currentUser) {
                     const lastTime = currentUser.lastCheckInTimestamp || 0;
@@ -538,6 +536,7 @@
                     <div class="space-y-6">
                         <h3 class="text-sm font-bold text-cyan-400 uppercase">PANEL ADMINISTRADOR</h3>
                         
+                        <!-- USUARIOS REGISTRADOS -->
                         <div class="bg-slate-900/90 p-4 rounded-xl border border-slate-800 space-y-3">
                             <h4 class="font-bold text-white text-xs uppercase">Usuarios Registrados (${usersList.length})</h4>
                             <div class="space-y-3 max-h-[32rem] overflow-y-auto">
@@ -566,13 +565,62 @@
                             </div>
                         </div>
 
+                        <!-- CARGAS PENDIENTES -->
                         <div class="bg-slate-900/90 p-4 rounded-xl border border-slate-800 space-y-3">
                             <h4 class="font-bold text-amber-400 text-xs uppercase">Cargas Pendientes (${pendR.length})</h4>
                             ${pendR.map(r => `<div class="bg-slate-950 p-3 rounded border border-slate-800 text-xs space-y-2"><p class="text-white">${r.userEmail} -$${r.amount}</p><button onclick="approveRecharge('${r.id}', '${r.userEmail}',${r.amount})" class="bg-emerald-500 text-slate-950 font-bold p-1.5 rounded text-[10px]">Aprobar</button></div>`).join('')}
+                            ${pendR.length === 0 ? '<p class="text-xs text-slate-500 text-center py-1">No hay cargas pendientes.</p>' : ''}
                         </div>
-                        <div class="bg-slate-900/90 p-4 rounded-xl border border-slate-800 space-y-3">
-                            <h4 class="font-bold text-blue-400 text-xs uppercase">Retiros Pendientes (${pendW.length})</h4>
-                            ${pendW.map(w => `<div class="bg-slate-950 p-3 rounded border border-slate-800 text-xs space-y-2"><p class="text-white">${w.userEmail} - Neto:$${w.netAmount} (${w.cbu})</p><button onclick="approveWithdraw('${w.id}')" class="bg-blue-500 text-slate-950 font-bold p-1.5 rounded text-[10px]">Completar</button></div>`).join('')}
+
+                        <!-- RETIROS PENDIENTES (NUEVA INTERFAZ MEJORADA) -->
+                        <div class="bg-slate-900/90 p-4 rounded-xl border border-blue-500/30 space-y-3 border-glow">
+                            <div class="flex justify-between items-center">
+                                <h4 class="font-black text-cyan-400 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                                    <span>🏦</span> RETIROS PENDIENTES (${pendW.length})
+                                </h4>
+                                <span class="text-[10px] bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 px-2 py-0.5 rounded font-bold">ACCIONES</span>
+                            </div>
+
+                            <div class="space-y-3">
+                                ${pendW.map(w => {
+                                    const grossAmount = w.amount || 0;
+                                    const feeAmount = grossAmount * WITHDRAW_FEE;
+                                    const netAmount = w.netAmount || (grossAmount - feeAmount);
+
+                                    return `
+                                        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3 relative overflow-hidden">
+                                            <div class="flex justify-between items-start gap-2 border-b border-slate-800 pb-2">
+                                                <div>
+                                                    <p class="font-black text-white text-xs break-all">${w.userEmail}</p>
+                                                    <p class="text-[10px] text-slate-400 mt-0.5">${w.date \vert{}\vert{} 'Sin fecha'}</p> </div> <span class="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[9px] font-bold px-2 py-0.5 rounded">PENDIENTE</span> </div>                                              <div class="grid grid-cols-3 gap-2 bg-slate-900/90 p-2.5 rounded-lg border border-slate-800 text-center"> <div> <p class="text-[9px] text-slate-400 uppercase font-semibold">Solicitado</p> <p class="text-xs font-black text-white">$${grossAmount.toLocaleString()} ARS</p>
+                                                </div>
+                                                <div>
+                                                    <p class="text-[9px] text-slate-400 uppercase font-semibold">Comisión (15%)</p>
+                                                    <p class="text-xs font-bold text-amber-400">-$${feeAmount.toLocaleString()} ARS</p> </div> <div> <p class="text-[9px] text-slate-400 uppercase font-semibold">Neto a Pagar</p> <p class="text-xs font-black text-emerald-400">$${netAmount.toLocaleString()} ARS</p>
+                                                </div>
+                                            </div>
+
+                                            <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800 flex justify-between items-center">
+                                                <div class="truncate mr-2">
+                                                    <p class="text-[9px] text-slate-400 font-semibold uppercase">CBU / CVU / Alias:</p>
+                                                    <p class="text-xs font-bold font-mono text-cyan-300 truncate">${w.cbu}</p>
+                                                </div>
+                                                <button onclick="copyToClipboard('${w.cbu}', '¡CBU/Alias copiado!')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] px-2.5 py-1.5 rounded font-bold border border-slate-700 flex-shrink-0">📋 Copiar</button>
+                                            </div>
+
+                                            <div class="grid grid-cols-2 gap-2 pt-1">
+                                                <button onclick="approveWithdraw('${w.id}')" class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black p-2.5 rounded-lg text-xs uppercase tracking-wider flex items-center justify-center gap-1">
+                                                    <span>✅</span> Completar
+                                                </button>
+                                                <button onclick="rejectAndRefundWithdraw('${w.id}', '${w.userEmail}',${grossAmount})" class="bg-gradient-to-r from-rose-600 to-red-700 hover:from-rose-500 hover:to-red-600 text-white font-black p-2.5 rounded-lg text-[11px] uppercase tracking-wider flex items-center justify-center gap-1">
+                                                    <span>❌</span> Rechazar y Reembolsar
+                                                </button>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                                ${pendW.length === 0 ? '<p class="text-xs text-slate-500 text-center py-2">No hay retiros pendientes por procesar.</p>' : ''}
+                            </div>
                         </div>
                     </div>
                 `;
@@ -779,7 +827,25 @@
 
         async function approveWithdraw(id) {
             await db.collection('withdraws').doc(id).update({ status: 'APPROVED' });
-            alert('Completado.');
+            alert('Retiro completado.');
+        }
+
+        async function rejectAndRefundWithdraw(id, email, amount) {
+            if (confirm(`¿Seguro que deseas rechazar este retiro de $${amount} ARS y reembolsar el dinero al usuario?`)) {
+                try {
+                    const uRef = db.collection('users').doc(email);
+                    const d = await uRef.get();
+                    if (d.exists) {
+                        const currentBal = d.data().balance || 0;
+                        await uRef.update({ balance: currentBal + amount });
+                    }
+                    await db.collection('withdraws').doc(id).update({ status: 'REJECTED' });
+                    alert(`Retiro rechazado. Se le han devuelto $${amount} ARS a ${email}.`);
+                } catch (err) {
+                    console.error("Error al reembolsar:", err);
+                    alert("Ocurrió un error al procesar el reembolso.");
+                }
+            }
         }
 
         // Inicializar escucha global de datos para el Admin
