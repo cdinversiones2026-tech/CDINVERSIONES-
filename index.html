@@ -22,6 +22,12 @@
             border-radius: 16px; padding: 24px 20px; max-width: 400px; width: 100%;
             box-shadow: 0 0 25px rgba(56, 189, 248, 0.2); text-align: center;
             font-family: system-ui, -apple-system, sans-serif; color: #f8fafc;
+            animation: cdModalApprove 0.3s ease-out;
+        }
+
+        @keyframes cdModalApprove {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
         }
 
         .cd-badge-alert {
@@ -50,8 +56,10 @@
             width: 100%; background: linear-gradient(90deg, #38bdf8, #2563eb); color: #020617;
             border: none; padding: 12px 20px; font-size: 14px; font-weight: 900;
             border-radius: 8px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px;
-            box-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.3); transition: all 0.2s;
         }
+
+        .cd-btn-primary:hover { opacity: 0.9; }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen font-sans">
@@ -148,18 +156,18 @@
         `;
 
         const PRODUCTS = [
-            { id: "flash_24hs", oldId: 99, name: "⚡ Paquete Flash 24hs", price: 7000, days: 3, dailyYield: 4800, total: 14400, limit: 0, isFlash: true },
-            { id: "plan_1", oldId: 1, name: "Plan Celular 5.000 ARS", price: 5000, days: 3, dailyYield: 2583, total: 7750, limit: 1 },
-            { id: "plan_2", oldId: 2, name: "Plan Celular 10.000 ARS", price: 10000, days: 6, dailyYield: 2583, total: 15500, limit: 1 },
-            { id: "plan_3", oldId: 3, name: "Plan Celular 16.000 ARS", price: 16000, days: 8, dailyYield: 3100, total: 24800, limit: 1 },
-            { id: "plan_4", oldId: 4, name: "Plan Celular 20.000 ARS", price: 20000, days: 11, dailyYield: 2818, total: 31000, limit: 1 },
-            { id: "plan_5", oldId: 5, name: "Plan Celular 28.000 ARS", price: 28000, days: 15, dailyYield: 2893, total: 43400, limit: 2 },
-            { id: "plan_6", oldId: 6, name: "Plan Celular 36.000 ARS", price: 36000, days: 18, dailyYield: 3100, total: 55800, limit: 2 },
-            { id: "plan_7", oldId: 7, name: "Plan Celular 45.000 ARS", price: 45000, days: 25, dailyYield: 2790, total: 69750, limit: 2 },
-            { id: "plan_8", oldId: 8, name: "Plan Celular 60.000 ARS", price: 60000, days: 30, dailyYield: 3100, total: 93000, limit: 2 },
-            { id: "plan_9", oldId: 9, name: "Plan Celular 75.000 ARS", price: 75000, days: 36, dailyYield: 3646, total: 131250, limit: 3 },
-            { id: "plan_10", oldId: 10, name: "Plan Celular 100.000 ARS", price: 100000, days: 48, dailyYield: 3646, total: 175000, limit: 3 },
-            { id: "plan_11", oldId: 11, name: "Plan Celular 150.000 ARS", price: 150000, days: 70, dailyYield: 3750, total: 262500, limit: 3 }
+            { id: "flash_24hs", oldNum: 99, name: "⚡ Paquete Flash 24hs", price: 7000, days: 3, dailyYield: 4800, total: 14400, limit: 0, isFlash: true },
+            { id: "plan_1", oldNum: 1, name: "Plan Celular 5.000 ARS", price: 5000, days: 3, dailyYield: 2583, total: 7750, limit: 1 },
+            { id: "plan_2", oldNum: 2, name: "Plan Celular 10.000 ARS", price: 10000, days: 6, dailyYield: 2583, total: 15500, limit: 1 },
+            { id: "plan_3", oldNum: 3, name: "Plan Celular 16.000 ARS", price: 16000, days: 8, dailyYield: 3100, total: 24800, limit: 1 },
+            { id: "plan_4", oldNum: 4, name: "Plan Celular 20.000 ARS", price: 20000, days: 11, dailyYield: 2818, total: 31000, limit: 1 },
+            { id: "plan_5", oldNum: 5, name: "Plan Celular 28.000 ARS", price: 28000, days: 15, dailyYield: 2893, total: 43400, limit: 2 },
+            { id: "plan_6", oldNum: 6, name: "Plan Celular 36.000 ARS", price: 36000, days: 18, dailyYield: 3100, total: 55800, limit: 2 },
+            { id: "plan_7", oldNum: 7, name: "Plan Celular 45.000 ARS", price: 45000, days: 25, dailyYield: 2790, total: 69750, limit: 2 },
+            { id: "plan_8", oldNum: 8, name: "Plan Celular 60.000 ARS", price: 60000, days: 30, dailyYield: 3100, total: 93000, limit: 2 },
+            { id: "plan_9", oldNum: 9, name: "Plan Celular 75.000 ARS", price: 75000, days: 36, dailyYield: 3646, total: 131250, limit: 3 },
+            { id: "plan_10", oldNum: 10, name: "Plan Celular 100.000 ARS", price: 100000, days: 48, dailyYield: 3646, total: 175000, limit: 3 },
+            { id: "plan_11", oldNum: 11, name: "Plan Celular 150.000 ARS", price: 150000, days: 70, dailyYield: 3750, total: 262500, limit: 3 }
         ];
 
         let currentUser = null;
@@ -169,12 +177,16 @@
         let rechargesList = [];
         let withdrawsList = [];
         let timerInterval = null;
+        let isSyncingRefs = false;
+        let isProcessingYields = false;
+        let globalEventStartTime = null;
 
         function getPurchasedQty(purchasesDict, product) {
             if (!purchasesDict) return 0;
-            const valNew = purchasesDict[product.id] || 0;
-            const valOld = product.oldId !== undefined ? (purchasesDict[product.oldId] || 0) : 0;
-            return valNew + valOld;
+            const qStrKey = purchasesDict[product.id] || 0;
+            const qNumKey = product.oldNum !== undefined ? (purchasesDict[product.oldNum] || 0) : 0;
+            const qStrNumKey = product.oldNum !== undefined ? (purchasesDict[String(product.oldNum)] || 0) : 0;
+            return Number(qStrKey) + Number(qNumKey) + Number(qStrNumKey);
         }
 
         function getUrlRefCode() {
@@ -241,6 +253,8 @@
         function copyToClipboard(text, msg) {
             navigator.clipboard.writeText(text).then(() => {
                 alert(msg || 'Copiado al portapapeles');
+            }).catch(() => {
+                alert('No se pudo copiar automáticamente.');
             });
         }
 
@@ -252,6 +266,63 @@
                 navigator.share({ title: 'CDINVERSIONES', text: shareText }).catch(() => {});
             } else {
                 copyToClipboard(shareText, '¡Enlace de referido copiado al portapapeles!');
+            }
+        }
+
+        async function initGlobalEventTime() {
+            try {
+                const eventDocRef = db.collection('settings').doc('event24h');
+                const doc = await eventDocRef.get();
+
+                if (doc.exists) {
+                    globalEventStartTime = doc.data().startTime;
+                } else {
+                    const now = Date.now();
+                    await eventDocRef.set({ startTime: now });
+                    globalEventStartTime = now;
+                }
+            } catch (err) {
+                if (!globalEventStartTime) globalEventStartTime = Date.now();
+            }
+        }
+
+        async function syncExistingReferrals() {
+            if (isSyncingRefs || usersList.length === 0) return;
+            isSyncingRefs = true;
+
+            try {
+                const referrerMap = {};
+                usersList.forEach(user => {
+                    if (user.referredBy) {
+                        referrerMap[user.referredBy] = (referrerMap[user.referredBy] || []);
+                        referrerMap[user.referredBy].push(user);
+                    }
+                });
+
+                for (const user of usersList) {
+                    if (!user.refCode) continue;
+                    const myRefUsers = referrerMap[user.refCode] || [];
+                    const creditedList = user.creditedRefEmails || [];
+
+                    const pendingToCredit500 = myRefUsers.filter(u => !creditedList.includes(u.email));
+                    if (pendingToCredit500.length > 0) {
+                        const newEmailsToCredit = pendingToCredit500.map(u => u.email);
+                        const bonusToAdd = pendingToCredit500.length * 500;
+                        const newBalance = (user.balance || 0) + bonusToAdd;
+                        const newRefBalance = (user.refBalance || 0) + bonusToAdd;
+                        const updatedCreditedList = [...creditedList, ...newEmailsToCredit];
+
+                        await db.collection('users').doc(user.email).update({
+                            balance: newBalance,
+                            refBalance: newRefBalance,
+                            creditedRefEmails: updatedCreditedList
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error("Error sincronizando referidos:", err);
+            } finally {
+                isSyncingRefs = false;
             }
         }
 
@@ -360,7 +431,7 @@
                             </div>
                         </div>
 
-                        <!-- MIS PLANES ADQUIRIDOS -->
+                        <!-- MIS PLANES ADQUIRIDOS (CON RETORNO TOTAL) -->
                         <div class="bg-slate-900/90 p-4 rounded-xl border border-cyan-500/30 space-y-3">
                             <h3 class="text-xs font-bold uppercase tracking-wider text-emerald-400">Mis Planes Adquiridos (${activePlans.length})</h3>
                             <div class="space-y-2">
@@ -393,7 +464,7 @@
                                 ${PRODUCTS.map(p => {
                                     const purchases = getPurchasedQty(currentUser.purchases, p);
                                     
-                                    // Ocultar paquete flash si el usuario no lo compró
+                                    // Si es el paquete flash y el usuario NO lo compró, se oculta de la tienda
                                     if (p.isFlash && purchases === 0) return '';
 
                                     const limitReached = purchases >= p.limit;
@@ -645,7 +716,6 @@
                                                 <p class="font-bold text-white text-xs">${u.email}</p> <p class="text-[11px] text-cyan-300">Saldo Inversión: $${(u.balance || 0).toLocaleString()} ARS</p>
                                                 <p class="text-[11px] text-emerald-400">Referidos: <strong>${countRefs}</strong> \vert{} Saldo Referidos: <strong>$${(u.refBalance || 0).toLocaleString()} ARS</strong></p>
                                                 
-                                                <!-- DETALLE DE PLANES ACTIVOS DEL USUARIO EN ADMIN -->
                                                 <div class="pt-1">
                                                     <p class="text-[10px] text-slate-400 font-bold uppercase">Planes Activos:</p>
                                                     ${uActivePlans.length > 0 ? `
@@ -779,12 +849,15 @@
         }
 
         function listenToData() {
+            initGlobalEventTime();
+
             db.collection('users').onSnapshot(snapshot => {
                 usersList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 if (currentUser) {
                     const match = usersList.find(u => u.email === currentUser.email);
                     if (match) currentUser = match;
                 }
+                syncExistingReferrals();
                 render();
             });
 
@@ -840,7 +913,7 @@
             if ((currentUser.balance || 0) < product.price) return alert('Saldo insuficiente para adquirir este plan');
 
             const currentPurchases = currentUser.purchases || {};
-            const currentQtyNewKey = currentPurchases[product.id] || 0;
+            const currentQtyNewKey = Number(currentPurchases[product.id] || 0);
 
             const updatedPurchases = { ...currentPurchases, [product.id]: currentQtyNewKey + 1 };
 
