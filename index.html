@@ -572,7 +572,7 @@
                             ${pendR.length === 0 ? '<p class="text-xs text-slate-500 text-center py-1">No hay cargas pendientes.</p>' : ''}
                         </div>
 
-                        <!-- RETIROS PENDIENTES (NUEVA INTERFAZ MEJORADA) -->
+                        <!-- RETIROS PENDIENTES -->
                         <div class="bg-slate-900/90 p-4 rounded-xl border border-blue-500/30 space-y-3 border-glow">
                             <div class="flex justify-between items-center">
                                 <h4 class="font-black text-cyan-400 text-xs uppercase tracking-wider flex items-center gap-1.5">
@@ -789,15 +789,15 @@
 
         async function solicitarRetiro() {
             const monto = parseFloat(document.getElementById("monto-retiro").value);
-            const cbu = document.getElementById("cbuInput").value.trim();
+            const userCbu = document.getElementById("cbuInput").value.trim();
             if (isNaN(monto) || monto < MIN_WITHDRAW || monto > MAX_WITHDRAW) return alert('Monto de retiro inválido.');
-            if (!cbu) return alert('Ingresa tu CBU o Alias');
+            if (!userCbu) return alert('Ingresa tu CBU o Alias');
             if ((currentUser.balance || 0) < monto) return alert('Saldo insuficiente');
 
             const comision = monto * WITHDRAW_FEE;
             const montoNeto = monto - comision;
 
-            await db.collection('withdraws').add({ userEmail: currentUser.email, amount: monto, netAmount: montoNeto, cbu, status: 'PENDING', date: new Date().toLocaleString() });
+            await db.collection('withdraws').add({ userEmail: currentUser.email, amount: monto, netAmount: montoNeto, cbu: userCbu, status: 'PENDING', date: new Date().toLocaleString() });
             await db.collection('users').doc(currentUser.email).update({ balance: currentUser.balance - monto });
             alert('Retiro solicitado.');
             setView('withdraws');
