@@ -258,6 +258,8 @@
             timerInterval = setInterval(() => {
                 checkCompletedPlans();
                 const now = Date.now();
+                
+                // Actualizar temporizadores de planes
                 const planEls = document.querySelectorAll('.plan-timer');
                 planEls.forEach(el => {
                     const end = parseInt(el.getAttribute('data-end'));
@@ -269,6 +271,18 @@
                         el.innerText = formatTimeRemaining(rem);
                     }
                 });
+
+                // Actualizar temporizador de Check-in
+                const checkinEl = document.getElementById('checkin-timer');
+                if (checkinEl && currentUser) {
+                    const lastTime = currentUser.lastCheckInTimestamp || 0;
+                    const rem = (24 * 60 * 60 * 1000) - (now - lastTime);
+                    if (rem <= 0) {
+                        render();
+                    } else {
+                        checkinEl.innerText = formatTimeRemaining(rem);
+                    }
+                }
             }, 1000);
         }
 
@@ -322,7 +336,6 @@
                 return;
             }
 
-            // Verificar planes completados de inmediato al renderizar
             checkCompletedPlans();
 
             let mainContent = '';
@@ -330,6 +343,11 @@
             const purchases = currentUser.purchases || {};
             const activePlans = currentUser.activePlans || [];
             const finishedPlans = currentUser.finishedPlans || [];
+
+            const lastCheckIn = currentUser.lastCheckInTimestamp || 0;
+            const checkInCooldown = 24 * 60 * 60 * 1000;
+            const checkInAvailable = (now - lastCheckIn) >= checkInCooldown;
+            const checkInRem = checkInCooldown - (now - lastCheckIn);
 
             if (currentView === 'home') {
                 mainContent = `
@@ -362,7 +380,13 @@
                                 <p class="text-[11px] text-slate-400">Reclama $100 ARS cada 24hs</p>
                             </div>
                             <div>
-                                <button onclick="handleCheckIn()" class="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs">Reclamar</button>
+                                ${checkInAvailable ? `
+                                    <button onclick="handleCheckIn()" class="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs">Reclamar</button>
+                                ` : `
+                                    <span class="bg-slate-800 text-cyan-400 font-mono text-xs px-2.5 py-1.5 rounded-lg border border-slate-700 font-bold block">
+                                        ⏱️ <span id="checkin-timer">${formatTimeRemaining(checkInRem)}</span>
+                                    </span>
+                                `}
                             </div>
                         </div>
 
@@ -610,6 +634,7 @@
                 const newUser = {
                     email, password: pass, balance: 0, refBalance: 0,
                     purchases: {}, activePlans: [], finishedPlans: [],
+                    lastCheckInTimestamp: 0,
                     refCode: generateRefCode(), referredBy: refCodeEntered || null
                 };
                 await ref.set(newUser);
@@ -651,10 +676,29 @@
         function logout() { currentUser = null; cerrarAviso(); render(); }
 
         async function handleCheckIn() {
-            await db.collection('users').doc(currentUser.email).update({
-                balance: (currentUser.balance || 0) + 100
-            });
-            alert('¡Recibiste $100 ARS!');
+            const now = Date.now();
+            const lastTime = currentUser.lastCheckInTimestamp || 0;
+            const cooldown = 24 * 60 * 60 * 1000;
+
+            if ((now - lastTime) < cooldown) {
+                return alert('Ya has realizado tu check-in hoy. Debes esperar 24 horas.');
+            }
+
+            const newBalance = (currentUser.balance || 0) + 100;
+            currentUser.balance = newBalance;
+            currentUser.lastCheckInTimestamp = now;
+
+            try {
+                await db.collection('users').doc(currentUser.email).update({
+                    balance: newBalance,
+                    lastCheckInTimestamp: now
+                });
+                alert('¡Check-in exitoso! Se han acreditado $100 ARS a tu saldo.');
+                render();
+            } catch (err) {
+                console.error("Error al guardar check-in:", err);
+                alert("Hubo un error al procesar el check-in.");
+            }
         }
 
         async function buyProduct(id) {
