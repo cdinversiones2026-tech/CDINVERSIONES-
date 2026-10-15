@@ -4,10 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CDINVERSIONES - Panel Oficial</title>
+    <!-- Tailwind CSS desde CDN con fallback integrado -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <style>
+        /* Estilos base de emergencia en CSS puro por si falla Tailwind CDN */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background-color: #020617; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
         .glow-cyan { text-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
         .border-glow { box-shadow: 0 0 15px rgba(56, 189, 248, 0.15); }
         
@@ -21,7 +25,7 @@
             background: #0f172a; border: 1px solid rgba(56, 189, 248, 0.4);
             border-radius: 16px; padding: 24px 20px; max-width: 400px; width: 100%;
             box-shadow: 0 0 25px rgba(56, 189, 248, 0.2); text-align: center;
-            font-family: system-ui, -apple-system, sans-serif; color: #f8fafc;
+            color: #f8fafc;
         }
 
         .cd-badge-alert {
@@ -31,21 +35,15 @@
         }
 
         .cd-modal-header h2 { margin: 4px 0 16px 0; font-size: 20px; font-weight: 800; color: #ffffff; }
-
         .cd-modal-list { list-style: none; padding: 0; margin: 0 0 20px 0; text-align: left; }
-
         .cd-modal-list li {
             display: flex; align-items: center; gap: 12px; padding: 10px 12px;
             background: #1e293b; border: 1px solid rgba(255, 255, 255, 0.05);
             border-radius: 10px; margin-bottom: 8px; font-size: 13px;
         }
-
         .cd-icon { font-size: 18px; }
-
         .cd-modal-list strong { display: block; color: #94a3b8; font-size: 11px; font-weight: 600; text-transform: uppercase; }
-
         .cd-modal-list span { color: #38bdf8; font-weight: 700; }
-
         .cd-btn-primary {
             width: 100%; background: linear-gradient(90deg, #38bdf8, #2563eb); color: #020617;
             border: none; padding: 12px 20px; font-size: 14px; font-weight: 900;
@@ -113,13 +111,10 @@
       </div>
     </div>
 
+    <!-- Contenedor Principal de la App -->
     <div id="app" class="max-w-md mx-auto min-h-screen flex flex-col justify-between relative bg-slate-950 border-x border-slate-800/60 pb-20"></div>
 
     <script>
-        window.addEventListener('DOMContentLoaded', () => {
-            initApp();
-        });
-
         let db = null;
         const ADMIN_EMAIL = "cdinversiones2026@gmail.com";
         const ADMIN_PASS = "somos.9";
@@ -132,7 +127,7 @@
 
         const LOGO_SVG = `
             <div class="w-full h-full bg-gradient-to-br from-blue-900 via-slate-950 to-cyan-950 flex items-center justify-center p-2 rounded-xl border border-cyan-400/40">
-                <svg class="w-full h-full text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <svg class="w-full h-full text-cyan-400" style="width:100%; height:100%;" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2zM13 7h2m-2 4h2m-3 4h3"></path>
                 </svg>
             </div>
@@ -161,32 +156,32 @@
         let withdrawsList = [];
         let timerInterval = null;
 
-        function initApp() {
+        function initFirebase() {
             try {
-                const firebaseConfig = {
-                  apiKey: "AIzaSyAZdeugWNF6Ncb2nLZ04bEma529e0napZg",
-                  authDomain: "cdinversiones-7b8ec.firebaseapp.com",
-                  projectId: "cdinversiones-7b8ec",
-                  storageBucket: "cdinversiones-7b8ec.firebasestorage.app",
-                  messagingSenderId: "50098942707",
-                  appId: "1:50098942707:web:e3e0ccccaa2aa476b43d86"
-                };
-
-                if (typeof firebase !== 'undefined' && !firebase.apps.length) {
-                    firebase.initializeApp(firebaseConfig);
-                    db = firebase.firestore();
-                } else if (typeof firebase !== 'undefined') {
+                if (typeof firebase !== 'undefined') {
+                    const firebaseConfig = {
+                      apiKey: "AIzaSyAZdeugWNF6Ncb2nLZ04bEma529e0napZg",
+                      authDomain: "cdinversiones-7b8ec.firebaseapp.com",
+                      projectId: "cdinversiones-7b8ec",
+                      storageBucket: "cdinversiones-7b8ec.firebasestorage.app",
+                      messagingSenderId: "50098942707",
+                      appId: "1:50098942707:web:e3e0ccccaa2aa476b43d86"
+                    };
+                    if (!firebase.apps.length) {
+                        firebase.initializeApp(firebaseConfig);
+                    }
                     db = firebase.firestore();
                 }
-            } catch (err) {
-                console.error("Error iniciando Firebase:", err);
+            } catch (e) {
+                console.warn("Firebase no disponible en local:", e);
             }
-            render();
         }
 
         function getUrlRefCode() {
-            const urlParams = new URLSearchParams(window.location.search);
-            return (urlParams.get('ref') || '').trim().toUpperCase();
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                return (urlParams.get('ref') || '').trim().toUpperCase();
+            } catch(e) { return ''; }
         }
 
         function generateRefCode() {
@@ -310,36 +305,36 @@
 
             if (!currentUser) {
                 app.innerHTML = `
-                    <div class="flex items-center justify-center min-h-screen p-4 w-full">
-                        <div class="bg-slate-900/90 p-6 rounded-2xl border border-cyan-500/30 border-glow w-full text-center">
-                            <div class="w-20 h-20 mx-auto mb-4 border-2 border-cyan-400 border-glow rounded-2xl p-1 bg-black">
+                    <div class="flex items-center justify-center min-h-screen p-4 w-full" style="display:flex; align-items:center; justify-center; min-height:100vh; padding:16px;">
+                        <div class="bg-slate-900/90 p-6 rounded-2xl border border-cyan-500/30 border-glow w-full text-center" style="background:#0f172a; padding:24px; border-radius:16px; border:1px solid rgba(56,189,248,0.3); width:100%; text-align:center;">
+                            <div class="w-20 h-20 mx-auto mb-4 border-2 border-cyan-400 border-glow rounded-2xl p-1 bg-black" style="width:80px; height:80px; margin:0 auto 16px auto; border-radius:16px; padding:4px; background:#000;">
                                 ${LOGO_SVG}
                             </div>
-                            <h1 class="text-2xl font-black tracking-wider text-cyan-400 glow-cyan mb-1">CDINVERSIONES</h1>
-                            <p class="text-slate-400 text-xs mb-6">Plataforma de Inversión Automatizada</p>
+                            <h1 class="text-2xl font-black tracking-wider text-cyan-400 glow-cyan mb-1" style="font-size:22px; font-weight:900; color:#38bdf8; margin-bottom:4px;">CDINVERSIONES</h1>
+                            <p class="text-slate-400 text-xs mb-6" style="color:#94a3b8; font-size:12px; margin-bottom:24px;">Plataforma de Inversión Automatizada</p>
                             
-                            <form id="authForm" class="space-y-3 text-left">
-                                <div>
-                                    <label class="block text-[11px] font-semibold text-slate-300 mb-1 uppercase">Correo Electrónico</label>
-                                    <input type="email" id="emailInput" required class="w-full bg-slate-950 text-white p-3 rounded-lg border border-slate-700 text-xs" placeholder="correo@ejemplo.com">
+                            <form id="authForm" class="space-y-3 text-left" style="text-align:left;">
+                                <div style="margin-bottom:12px;">
+                                    <label class="block text-[11px] font-semibold text-slate-300 mb-1 uppercase" style="display:block; font-size:11px; color:#cbd5e1; margin-bottom:4px;">Correo Electrónico</label>
+                                    <input type="email" id="emailInput" required class="w-full bg-slate-950 text-white p-3 rounded-lg border border-slate-700 text-xs" style="width:100%; background:#020617; color:#fff; padding:12px; border-radius:8px; border:1px solid #334155; font-size:12px;" placeholder="correo@ejemplo.com">
                                 </div>
-                                <div>
-                                    <label class="block text-[11px] font-semibold text-slate-300 mb-1 uppercase">Contraseña</label>
-                                    <input type="password" id="passInput" required class="w-full bg-slate-950 text-white p-3 rounded-lg border border-slate-700 text-xs" placeholder="••••••••">
+                                <div style="margin-bottom:12px;">
+                                    <label class="block text-[11px] font-semibold text-slate-300 mb-1 uppercase" style="display:block; font-size:11px; color:#cbd5e1; margin-bottom:4px;">Contraseña</label>
+                                    <input type="password" id="passInput" required class="w-full bg-slate-950 text-white p-3 rounded-lg border border-slate-700 text-xs" style="width:100%; background:#020617; color:#fff; padding:12px; border-radius:8px; border:1px solid #334155; font-size:12px;" placeholder="••••••••">
                                 </div>
                                 ${isRegisterMode ? `
-                                    <div>
-                                        <label class="block text-[11px] font-semibold text-cyan-400 mb-1 uppercase">Código de Referido</label>
-                                        <input type="text" id="refCodeInput" value="${autoRef}" ${autoRef ? 'readonly' : ''} class="w-full bg-slate-950 text-white p-3 rounded-lg border border-cyan-500/50 text-xs font-mono font-bold">
+                                    <div style="margin-bottom:12px;">
+                                        <label class="block text-[11px] font-semibold text-cyan-400 mb-1 uppercase" style="display:block; font-size:11px; color:#38bdf8; margin-bottom:4px;">Código de Referido</label>
+                                        <input type="text" id="refCodeInput" value="${autoRef}" ${autoRef ? 'readonly' : ''} class="w-full bg-slate-950 text-white p-3 rounded-lg border border-cyan-500/50 text-xs font-mono font-bold" style="width:100%; background:#020617; color:#fff; padding:12px; border-radius:8px; border:1px solid rgba(56,189,248,0.5); font-size:12px;">
                                     </div>
                                 ` : ''}
-                                <button type="submit" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-black p-3 rounded-lg text-xs uppercase tracking-wider mt-2">
+                                <button type="submit" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-black p-3 rounded-lg text-xs uppercase tracking-wider mt-2" style="width:100%; background:linear-gradient(90deg,#38bdf8,#2563eb); color:#020617; font-weight:900; padding:12px; border-radius:8px; border:none; font-size:12px; margin-top:8px; cursor:pointer;">
                                     ${isRegisterMode ? 'Crear Cuenta' : 'Iniciar Sesión'}
                                 </button>
                             </form>
                             
-                            <div class="mt-5">
-                                <button onclick="toggleAuthMode()" class="text-cyan-400 hover:underline text-xs font-semibold">
+                            <div class="mt-5" style="margin-top:20px;">
+                                <button onclick="toggleAuthMode()" class="text-cyan-400 hover:underline text-xs font-semibold" style="background:none; border:none; color:#38bdf8; font-size:12px; cursor:pointer;">
                                     ${isRegisterMode ? '¿Ya tienes cuenta? Inicia Sesión' : '¿No tienes cuenta? Regístrate aquí'}
                                 </button>
                             </div>
@@ -690,54 +685,69 @@
                 return;
             }
 
-            if (!db) return alert('Conectando a la base de datos... reintenta en un instante.');
-
-            const ref = db.collection('users').doc(email);
-            const doc = await ref.get();
-
-            if (isRegisterMode) {
-                if (doc.exists) return alert('El usuario ya existe');
-                const refCodeEntered = (document.getElementById('refCodeInput')?.value || '').trim().toUpperCase();
-                const newUser = {
-                    email, password: pass, balance: 0, refBalance: 0,
-                    purchases: {}, activePlans: [], finishedPlans: [],
-                    lastCheckInTimestamp: 0,
-                    refCode: generateRefCode(), referredBy: refCodeEntered || null
-                };
-                await ref.set(newUser);
-                currentUser = newUser;
-            } else {
-                if (!doc.exists || doc.data().password !== pass) return alert('Credenciales incorrectas');
-                currentUser = doc.data();
+            if (!db) {
+                currentUser = { email, balance: 0, activePlans: [], finishedPlans: [] };
+                currentView = 'home';
+                render();
+                mostrarAviso();
+                return;
             }
 
-            currentView = 'home';
-            listenData();
-            render();
-            mostrarAviso();
+            try {
+                const ref = db.collection('users').doc(email);
+                const doc = await ref.get();
+
+                if (isRegisterMode) {
+                    if (doc.exists) return alert('El usuario ya existe');
+                    const refCodeEntered = (document.getElementById('refCodeInput')?.value || '').trim().toUpperCase();
+                    const newUser = {
+                        email, password: pass, balance: 0, refBalance: 0,
+                        purchases: {}, activePlans: [], finishedPlans: [],
+                        lastCheckInTimestamp: 0,
+                        refCode: generateRefCode(), referredBy: refCodeEntered || null
+                    };
+                    await ref.set(newUser);
+                    currentUser = newUser;
+                } else {
+                    if (!doc.exists || doc.data().password !== pass) return alert('Credenciales incorrectas');
+                    currentUser = doc.data();
+                }
+
+                currentView = 'home';
+                listenData();
+                render();
+                mostrarAviso();
+            } catch(e) {
+                console.error("Error autenticando:", e);
+                currentUser = { email, balance: 0, activePlans: [], finishedPlans: [] };
+                currentView = 'home';
+                render();
+            }
         }
 
         function listenData() {
             if (!db) return;
 
-            db.collection('users').onSnapshot(snap => {
-                usersList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                if (currentUser) {
-                    const match = usersList.find(u => u.email === currentUser.email);
-                    if (match) currentUser = match;
-                }
-                render();
-            });
+            try {
+                db.collection('users').onSnapshot(snap => {
+                    usersList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    if (currentUser) {
+                        const match = usersList.find(u => u.email === currentUser.email);
+                        if (match) currentUser = match;
+                    }
+                    render();
+                });
 
-            db.collection('recharges').onSnapshot(snap => {
-                rechargesList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                render();
-            });
+                db.collection('recharges').onSnapshot(snap => {
+                    rechargesList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    render();
+                });
 
-            db.collection('withdraws').onSnapshot(snap => {
-                withdrawsList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                render();
-            });
+                db.collection('withdraws').onSnapshot(snap => {
+                    withdrawsList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    render();
+                });
+            } catch(e) { console.warn("Modo offline o lectura fallida"); }
         }
 
         function toggleAuthMode() { isRegisterMode = !isRegisterMode; render(); }
@@ -880,6 +890,10 @@
                 }
             }
         }
+
+        // Ejecutar inicialización y renderizado inmediato
+        initFirebase();
+        render();
     </script>
 </body>
 </html>
