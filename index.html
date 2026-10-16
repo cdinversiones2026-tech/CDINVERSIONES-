@@ -31,6 +31,7 @@
         .btn-emerald { background: linear-gradient(90deg, #10b981, #059669); color: #020617; }
         .btn-rose { background: #e11d48; color: #fff; }
         .btn-purple { background: linear-gradient(90deg, #a855f7, #6b21a8); color: #fff; }
+        .btn-amber { background: linear-gradient(90deg, #f59e0b, #d97706); color: #020617; }
         .btn-outline { background: #1e293b; color: #38bdf8; border: 1px solid #334155; }
         .btn:disabled { background: #334155; color: #94a3b8; cursor: not-allowed; }
         
@@ -87,6 +88,8 @@
         const MIN_RECHARGE = 6500;
         const MIN_WITHDRAW = 1000;
         const WITHDRAW_COOLDOWN_MS = 48 * 3600 * 1000;
+        const REFERRAL_BONUS_PER_USER = 500; // $500 por referido
+        const MILESTONE_BONUS_AMOUNT = 5000; // $5.000 por 10 referidos
 
         const PRODUCTS = [
             { id: 1, name: "Plan Celular 5.000 ARS", price: 5000, days: 3, total: 7750, limit: 1 },
@@ -110,6 +113,7 @@
         let rechargesList = [];
         let withdrawsList = [];
         let flashOffersList = [];
+        let bonusRequestsList = [];
         let timerInterval = null;
 
         function initFirebase() {
@@ -155,16 +159,24 @@
         function setAdminView(v) { adminView = v; render(); }
         function logout() { currentUser = null; render(); }
 
-        function checkCompletedPlans() {
-            if (!currentUser || currentUser.email === ADMIN_EMAIL || !currentUser.activePlans || currentUser.activePlans.length === 0 || !db) return;
+        function processUserPlans(userObj) {
+            if (!userObj || !userObj.activePlans || userObj.activePlans.length === 0 || !db) return false;
             const now = Date.now();
             let updatedPlans = [];
-            let finishedPlansList = currentUser.finishedPlans || [];
+            let finishedPlansList = userObj.finishedPlans || [];
             let totalYield = 0;
             let changed = false;
 
-            currentUser.activePlans.forEach(plan => {
-                const durationMs = plan.days ? (plan.days * 24 * 3600 * 1000) : ((plan.durationHours || 72) * 3600 * 1000);
+            userObj.activePlans.forEach(plan => {
+                let durationMs = 0;
+                if (plan.durationHours) {
+                    durationMs = plan.durationHours * 3600 * 1000;
+                } else if (plan.days) {
+                    durationMs = plan.days * 24 * 3600 * 1000;
+                } else {
+                    durationMs = 3 * 24 * 3600 * 1000;
+                }
+
                 if (now >= (plan.boughtAt + durationMs)) {
                     totalYield += plan.total;
                     finishedPlansList.push({ ...plan, finishedAt: now });
@@ -175,24 +187,32 @@
             });
 
             if (changed) {
-                const newBal = (currentUser.balance || 0) + totalYield;
-                currentUser.balance = newBal;
-                currentUser.activePlans = updatedPlans;
-                currentUser.finishedPlans = finishedPlansList;
-                db.collection('users').doc(currentUser.email).update({
+                const newBal = (userObj.balance || 0) + totalYield;
+                userObj.balance = newBal;
+                userObj.activePlans = updatedPlans;
+                userObj.finishedPlans = finishedPlansList;
+                db.collection('users').doc(userObj.email).update({
                     balance: newBal,
                     activePlans: updatedPlans,
                     finishedPlans: finishedPlansList
                 });
+            }
+            return changed;
+        }
+
+        function checkCompletedPlans() {
+            if (!currentUser) return;
+            if (currentUser.email === ADMIN_EMAIL) {
+                usersList.forEach(u => processUserPlans(u));
+            } else {
+                processUserPlans(currentUser);
             }
         }
 
         function startLiveTimers() {
             if (timerInterval) clearInterval(timerInterval);
             timerInterval = setInterval(() => {
-                if (currentUser && currentUser.email !== ADMIN_EMAIL) {
-                    checkCompletedPlans();
-                }
+                checkCompletedPlans();
                 const now = Date.now();
                 
                 document.querySelectorAll('.plan-timer').forEach(el => {
@@ -286,6 +306,7 @@
             if (currentUser.email === ADMIN_EMAIL) {
                 const pendW = withdrawsList.filter(w => w.status === 'PENDING');
                 const pendR = rechargesList.filter(r => r.status === 'PENDING');
+                const pendB = bonusRequestsList.filter(b => b.status === 'PENDING');
 
                 let adminContent = '';
                 if (adminView === 'withdraws') {
@@ -378,6 +399,20 @@
                     `;
                 } else if (adminView === 'users') {
                     adminContent = `
+                        <!-- SOLICITUDES DE BONO DE 10 REFERIDOS -->
+                        <h3 style="color:#f59e0b; font-size:14px; font-weight:800; margin-bottom:14px;">🎁 SOLICITUDES BONO 10 REFERIDOS (${pendB.length})</h3>
+                        ${pendB.map(b => `
+                            <div class="card" style="border-color:#f59e0b;">
+                                <p style="color:#fff; font-size:12px; font-weight:700;">${b.userEmail}</p>
+                                <p style="color:#34d399; font-weight:800; font-size:12px; margin:4px 0;">Bono: $5.000 ARS (${b.refCount} Referidos)</p>
+                                <div class="grid-2" style="margin-top:8px;">
+                                    <button onclick="approveMilestoneBonus('${b.id}', '${b.userEmail}')" class="btn btn-emerald" style="padding:6px; font-size:10px;">Aprobar $5.000</button>
+                                    <button onclick="rejectMilestoneBonus('${b.id}')" class="btn btn-rose" style="padding:6px; font-size:10px;">Rechazar</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                        ${pendB.length === 0 ? '<p style="font-size:11px; color:#64748b; text-align:center; margin-bottom:20px;">No hay solicitudes de bonos pendientes.</p>' : ''}
+
                         <h3 style="color:#38bdf8; font-size:14px; font-weight:800; margin-bottom:14px;">👥 GESTIÓN DE USUARIOS (${usersList.length})</h3>
                         
                         <div class="card" style="border-color: rgba(56, 189, 248, 0.4); margin-bottom: 20px;">
@@ -401,12 +436,16 @@
                                 <div class="card">
                                     <p style="font-weight:700; color:#fff; font-size:12px; margin-bottom:4px;">${u.email}</p>
                                     <div style="display:flex; justify-content:space-between; margin-bottom:6px; color:#94a3b8; font-size:10px;">
-                                        <span>👥 Referidos: <strong style="color:#38bdf8;">${refCount}</strong></span> <span>🎁 Bono Referidos: <strong style="color:#34d399;">$${refBal.toLocaleString()} ARS</strong></span>
+                                        <span>👥 Referidos: <strong style="color:#38bdf8;">${refCount}</strong></span> <span>🎁 Acumulado Referidos: <strong style="color:#34d399;">$${refBal.toLocaleString()} ARS</strong></span>
                                     </div>
                                     
                                     <div style="background:#020617; padding:8px; border-radius:6px; margin-bottom:8px;">
                                         <p style="color:#38bdf8; font-weight:700; font-size:10px; margin-bottom:4px;">📦 Planes Activos (${activePlans.length}):</p>${activePlans.map(p => {
-                                            const durationMs = p.days ? (p.days * 24 * 3600 * 1000) : ((p.durationHours || 72) * 3600 * 1000);
+                                            let durationMs = 0;
+                                            if (p.durationHours) durationMs = p.durationHours * 3600 * 1000;
+                                            else if (p.days) durationMs = p.days * 24 * 3600 * 1000;
+                                            else durationMs = 3 * 24 * 3600 * 1000;
+
                                             const end = p.boughtAt + durationMs;
                                             const rem = end - now;
                                             const fechaCompra = new Date(p.boughtAt).toLocaleString();
@@ -458,7 +497,7 @@
                         </button>
                         <button onclick="setAdminView('users')" class="${adminView === 'users' ? 'active' : ''}">
                             <span style="font-size:14px;">👥</span>
-                            <span>Usuarios</span>
+                            <span>Usuarios (${pendB.length})</span>
                         </button>
                     </div>
                 `;
@@ -479,7 +518,6 @@
                 const activePlans = currentUser.activePlans || [];
                 const finishedPlans = currentUser.finishedPlans || [];
 
-                // FILTRAR OFERTAS FLASH DISPONIBLES (Que no hayan caducado y que el usuario no las haya comprado aún)
                 const activeFlashOffers = flashOffersList.filter(fo => {
                     const buyExpired = now >= fo.buyUntil;
                     const yaCompradoActivo = activePlans.some(ap => ap.id === fo.id);
@@ -487,7 +525,6 @@
                     return !buyExpired && !yaCompradoActivo && !yaCompradoTerminado;
                 });
 
-                // FILTRAR PLANES NORMALES DISPONIBLES
                 const availableProducts = PRODUCTS.filter(p => {
                     const yaCompradoActivo = activePlans.some(ap => ap.id === p.id);
                     const yaCompradoTerminado = finishedPlans.some(fp => fp.id === p.id);
@@ -541,7 +578,11 @@
                         <div class="card">
                             <h3 style="font-size:12px; color:#38bdf8; font-weight:800; margin-bottom:10px;">PLANES ACTIVOS (${activePlans.length})</h3>
                             ${activePlans.map(p => {
-                                const durationMs = p.days ? (p.days * 24 * 3600 * 1000) : ((p.durationHours || 72) * 3600 * 1000);
+                                let durationMs = 0;
+                                if (p.durationHours) durationMs = p.durationHours * 3600 * 1000;
+                                else if (p.days) durationMs = p.days * 24 * 3600 * 1000;
+                                else durationMs = 3 * 24 * 3600 * 1000;
+
                                 const end = p.boughtAt + durationMs;
                                 return `
                                     <div style="background:#020617; padding:10px; border-radius:8px; margin-bottom:8px; font-size:11px; ${p.isFlash ? 'border:1px solid #a855f7;' : ''}">
@@ -584,18 +625,68 @@
                 const refCode = currentUser.refCode || '';
                 const siteUrl = window.location.origin + window.location.pathname + (refCode ? '?ref=' + refCode : '');
                 const myRefs = usersList.filter(u => refCode && u.referredBy === refCode);
+                const refCount = myRefs.length;
+                const earnedRefBalance = refCount * REFERRAL_BONUS_PER_USER;
+                
+                const hasActivePlan = currentUser.activePlans && currentUser.activePlans.length > 0;
+                const existingBonusReq = bonusRequestsList.find(b => b.userEmail === currentUser.email);
+
                 mainContent = `
                     <div style="padding:16px;">
                         <div class="card">
-                            <h3 style="color:#38bdf8; font-size:14px; font-weight:800; margin-bottom:8px;">SISTEMA DE REFERIDOS</h3>
-                            <p style="font-size:12px; color:#cbd5e1; margin-bottom:12px;">Comparte tu enlace y gana por cada invitado.</p>
+                            <h3 style="color:#38bdf8; font-size:14px; font-weight:800; margin-bottom:8px;">👥 SISTEMA DE REFERIDOS</h3>
+                            <p style="font-size:12px; color:#cbd5e1; margin-bottom:12px;">Ganas <strong style="color:#34d399;">$500 ARS</strong> por cada amigo que se registre con tu código.</p>
+                            
+                            <label>Tu Enlace Personal</label>
                             <input type="text" value="${siteUrl}" readonly style="font-size:10px;">
-                            <button onclick="navigator.clipboard.writeText('${siteUrl}'); alert('Enlace copiado');" class="btn" style="margin-top:6px;">Copiar Enlace</button>
+                            <button onclick="navigator.clipboard.writeText('${siteUrl}'); alert('Enlace de referido copiado');" class="btn" style="margin-top:6px;">Copiar Enlace</button>
                         </div>
+
+                        <!-- BONOS ACUMULADOS -->
+                        <div class="card" style="border-color:#34d399;">
+                            <h3 style="color:#34d399; font-size:12px; font-weight:800; margin-bottom:6px;">🎁 BONO DE REFERIDOS GANADO</h3>
+                            <p style="font-size:22px; font-weight:900; color:#fff;">$${earnedRefBalance.toLocaleString()} ARS</p>
+                            <p style="font-size:10px; color:#cbd5e1; margin:6px 0 10px 0;">
+                                ${hasActivePlan ? '✅ Tienes un plan activo para reclamar este saldo.' : '⚠️ Requiere tener al menos 1 plan activo para poder transferir a tu saldo principal.'}
+                            </p>
+                            <button onclick="claimReferralBalance()" ${!hasActivePlan || earnedRefBalance <= 0 ? 'disabled' : ''} class="btn btn-emerald">
+                                Transferir a Saldo Principal
+                            </button>
+                        </div>
+
+                        <!-- META DE 10 REFERIDOS -->
+                        <div class="card" style="border-color:#f59e0b; background:linear-gradient(135deg, #0f172a, #2d1800);">
+                            <div class="flex-between">
+                                <h3 style="color:#f59e0b; font-size:13px; font-weight:800;">🏆 META DE 10 REFERIDOS</h3>
+                                <span class="badge" style="background:#f59e0b; color:#020617; font-weight:900;">$5.000 ARS BONO</span>
+                            </div>
+                            <p style="font-size:11px; color:#cbd5e1; margin:6px 0;">Llega a 10 invitados y solicita un premio adicional de $5.000 ARS.</p>
+                            
+                            <div style="background:#020617; padding:8px 12px; border-radius:8px; text-align:center; margin:10px 0; border:1px solid #d97706;">
+                                <span style="font-size:14px; font-weight:900; color:#f59e0b;">Progreso: ${refCount} / 10 Referidos</span>
+                            </div>
+
+                            ${refCount >= 10 ? `
+                                ${existingBonusReq ? `
+                                    <p style="font-size:11px; color:#f59e0b; text-align:center; font-weight:700;">
+                                        Estado de Solicitud: ${existingBonusReq.status === 'PENDING' ? '⏳ PENDIENTE DE REVISIÓN' : (existingBonusReq.status === 'APPROVED' ? '✅ RECOMPENSA ENTREGADA' : '❌ RECHAZADA')}
+                                    </p>
+                                ` : `
+                                    <button onclick="requestMilestoneBonus(${refCount})" class="btn btn-amber">
+                                        🎯 10/10 RECLAMAR BONO DE $5.000 ARS
+                                    </button>
+                                `}
+                            ` : `
+                                <button disabled class="btn" style="background:#334155; color:#94a3b8;">
+                                    Faltan ${10 - refCount} referidos para desbloquear
+                                </button>
+                            `}
+                        </div>
+
                         <div class="card">
-                            <h3 style="color:#38bdf8; font-size:12px; font-weight:800; margin-bottom:10px;">TUS REFERIDOS (${myRefs.length})</h3>
+                            <h3 style="color:#38bdf8; font-size:12px; font-weight:800; margin-bottom:10px;">MIS INVITADOS (${myRefs.length})</h3>
                             ${myRefs.map(u => `<div style="background:#020617; padding:8px; border-radius:6px; margin-bottom:6px; font-size:11px;">${u.email}</div>`).join('')}
-                            ${myRefs.length === 0 ? '<p style="font-size:11px; color:#64748b;">No tienes referidos aún.</p>' : ''}
+                            ${myRefs.length === 0 ? '<p style="font-size:11px; color:#64748b;">Aún no has invitado a nadie.</p>' : ''}
                         </div>
                     </div>
                 `;
@@ -760,6 +851,7 @@
                     const match = usersList.find(u => u.email === currentUser.email);
                     if (match) currentUser = match;
                 }
+                checkCompletedPlans();
                 render();
             });
             db.collection('recharges').onSnapshot(snap => {
@@ -774,6 +866,68 @@
                 flashOffersList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 render();
             });
+            db.collection('bonus_requests').onSnapshot(snap => {
+                bonusRequestsList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                render();
+            });
+        }
+
+        async function claimReferralBalance() {
+            const hasActivePlan = currentUser.activePlans && currentUser.activePlans.length > 0;
+            if (!hasActivePlan) return alert('Debes tener al menos 1 plan activo para poder reclamar tu bono de referidos.');
+
+            const refCode = currentUser.refCode || '';
+            const myRefs = usersList.filter(u => refCode && u.referredBy === refCode);
+            const refCount = myRefs.length;
+            const totalEarned = refCount * REFERRAL_BONUS_PER_USER;
+
+            if (totalEarned <= 0) return alert('No tienes saldo acumulado por referidos.');
+
+            const newBalance = (currentUser.balance || 0) + totalEarned;
+            currentUser.balance = newBalance;
+
+            if (db) {
+                await db.collection('users').doc(currentUser.email).update({
+                    balance: newBalance
+                });
+            }
+            alert(`¡Se transfirieron $${totalEarned.toLocaleString()} ARS de tu bono de referidos al Saldo Principal!`);
+            render();
+        }
+
+        async function requestMilestoneBonus(count) {
+            if (count < 10) return alert('Necesitas 10 referidos para solicitar este bono.');
+            if (db) {
+                await db.collection('bonus_requests').add({
+                    userEmail: currentUser.email,
+                    refCount: count,
+                    amount: MILESTONE_BONUS_AMOUNT,
+                    status: 'PENDING',
+                    requestedAt: Date.now()
+                });
+                alert('¡Solicitud de Bono enviada al administrador!');
+                render();
+            }
+        }
+
+        async function approveMilestoneBonus(reqId, userEmail) {
+            if (!db) return;
+            const userDoc = await db.collection('users').doc(userEmail).get();
+            if (userDoc.exists) {
+                const currentBal = userDoc.data().balance || 0;
+                await db.collection('users').doc(userEmail).update({
+                    balance: currentBal + MILESTONE_BONUS_AMOUNT
+                });
+                await db.collection('bonus_requests').doc(reqId).update({ status: 'APPROVED' });
+                alert(`¡Bono de $5.000 ARS acreditado a ${userEmail}!`);
+            }
+        }
+
+        async function rejectMilestoneBonus(reqId) {
+            if (confirm('¿Rechazar esta solicitud de bono?') && db) {
+                await db.collection('bonus_requests').doc(reqId).update({ status: 'REJECTED' });
+                alert('Solicitud rechazada.');
+            }
         }
 
         async function handleCreateFlash(e) {
